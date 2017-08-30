@@ -14,3 +14,9 @@ our metastasis formation project.
 
 This is a piece of R code, which depends on the following libraries:
 ggplot2, calibrate, gridExtra, survival.
+
+Running the code:
+
+source("Metastasis_Main.R") 
+
+in R.
