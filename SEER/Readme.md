@@ -1,4 +1,4 @@
-This folder contains code for processing the SEER data.
+This folder contains code for processing the SEER data (Surveillance epidemiology and end results program, 1973-2013 Data, Nov 2015 Submission).
 
 To run the code, you will need CancersSel.RData file, which contains indivudual SEER records. 
 Our Data-Use Agreement for the SEER 1973-2013 Research Data Files 
