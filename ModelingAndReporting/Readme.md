@@ -11,5 +11,6 @@ Running this code produces a folder called Fit_BCDf_largeInit, which is also cop
 
 In order to reproduce all result figures & tables, please run 
 
-source("BCD_SummarizeCancers.R").
+source("BCD_SummarizeCancers.R")
+in a folder that contains the Fit_BCDf_largeInit folder and HaenoData.txt file (also provided).
 
