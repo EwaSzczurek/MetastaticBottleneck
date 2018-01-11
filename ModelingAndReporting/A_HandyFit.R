@@ -1,11 +1,12 @@
 library("ggplot2")
 library("minpack.lm")
 
+### Clean the fit results from such results on initial parameters which did not converge
 cleanFits <- function(fits, cn){
-	#browser()
+	
 	if (!is.null(fits)){
 		nulls = unlist( lapply(fits, is.null) )
-		#browser()
+		
 		if (!all(nulls)){
 			fits = fits[!nulls]
 			fits = matrix( unlist( fits), byrow = TRUE, ncol = length(cn) )
@@ -20,7 +21,7 @@ cleanFits <- function(fits, cn){
 	fits
 }
 
-
+### Run the fit on multiple cores
 FitSurvivalPMetCondObsV <-function(surv.data, pars, data.gen, paral = FALSE){
 	if (paral){
 		sim.no=core.number
@@ -43,7 +44,6 @@ FitSurvivalPMetCondObsV <-function(surv.data, pars, data.gen, paral = FALSE){
 		fits <- cleanFits(fits, names.run)
 	}
 	
-#	cat("With no fixed parameters, ",nrow(fits), "successful\n")	
 	res = NULL
 
 	if (!is.null(fits)){
