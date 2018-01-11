@@ -10,18 +10,6 @@ require(foreach)
 require(doMC)
 
 
-## Decide on the distribution of the bottleneck severity b
-#distribution = "uniform"
-#distribution = "gamma"
-distribution = "lnorm"
-
-actual.names = switch(distribution,
-	lnorm= c("T0","h","T1","mu","sigma","f", "rmse","r2"),
-	gamma = c("T0","h","T1","shape","scale","f", "rmse","r2"),
-	uniform = c("T0","h","T1", "c1","c2","f","rmse","r2")
-	)
-
-
 ### Fit parameters for a given cancer
 FitCancer <- function(cancer, draw=FALSE, nam = ""){
 	
