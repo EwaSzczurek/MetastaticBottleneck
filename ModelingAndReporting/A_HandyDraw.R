@@ -10,59 +10,6 @@ library(survival)
 
 
 
-source("A_HandyDrawFuncnam.R")
-
-DrawFitFunc <- function(surv.data, data.gen, res.exp, nam="", q=0.5){
-	pt.size=0.7
-	cex.p = 0.7
-	cex.l = 0.8
-	hp = 7.1
-	wp=6
-	le= length(data.gen)
-	print(nam)
-	par(mfrow=c(4,3))
-	par(ps=11, mar=c(3, 3.1,2.5,0.2), mgp=c(1.6,0.4,0))
-	ds=0
-	letters = c("A","B","C","D","E","F","G","H","I","J","K","L")
-	for (i in (1:le)){
-		dg = data.gen[[i]]
-		func = dg$func
-		funcnam=dg$funcnam
-		
-		pars = dg$basic.pars
-		x=dg$D
-		ds2=ds+length(x)
-		y = surv.data[(ds+1):ds2,2]
-		ds=ds2
-		xl = "Time to death"
-		tit = ""
-		lcol = "blue"
-		pars = getPars(res.exp, pars)
-		xs = seq(0.1,10,by=0.1)
-		preds = func( xs, pars)
-		switch(funcnam, 
-			medSurvExpV={
-				tit = paste(pars$quant,"-th time to death quantile", sep = "")
-				plot( x = x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "black",ylim=c(0,max(surv.data[,2] )),xlim=c(0.1,10))
-				
-			}, 
-			obsMetProbExpV={
-				xl = tit="Observed metastasis rate"
-				plot( x = x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "black", ylim = c(0,1),xlim=c(0.1,10))
-				
-			}
-		)
-		mtext(letters[i], side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-		lines (x = xs, y = preds, col=lcol)
-		title(tit, cex.main=1.1)
-		
-	}
-	
-	dev.off()
-}
-
-
-
 makeReplacement<- function(cancer){
 	cancer = gsub("Endometrial", "Endo-\nmetrial", cancer )
     cancer = gsub("Esophageal", "Eso-\nphageal", cancer )
@@ -76,6 +23,554 @@ reverseReplacement<-function(cancer){
 		cancer = gsub("-\n", "", cancer )
 		cancer	= gsub("\n"," ", cancer)
 		cancer
+}
+
+
+Figure2<- function(r.fits, r.val, r.valfitsAll, km.data, appr, par.h){
+	red="red3"
+	blue="royalblue3"
+	orange="darkorange2"
+
+
+	r.fits$Cancer= factor( replaceCancers(( r.fits$Cancer)),levels=replaceCancers(levels( r.fits$Cancer)))
+	r.fits$Cancer = makeReplacement(r.fits$Cancer)
+	r.fits = r.fits[!r.fits$Cancer =="Ovarian",]
+		
+	tot = aggregate(r.fits$NRMSE, by=list( Cancer= r.fits$Cancer), FUN=function(x){sum(x, na.rm = T)/sum(!is.na(x))})
+	Cancers = as.character( tot$Cancer[order(tot$x)])
+	r.fits$Cancer = factor( r.fits$Cancer, levels = Cancers)
+
+	r.fits$Data = gsub(" time to death quantile", "", r.fits$Data )
+	#r.fits$Data = gsub("w. mets", "with metastases", r.fits$Data )
+	r.fits$Data = gsub(" rate", "", r.fits$Data )
+	r.fits$Data = gsub("0.5-th", "0.50-th", r.fits$Data )
+	r.fits$Data[r.fits$Data=="Met incidence"] = "Met detection"
+	r.fits$Cancer2=r.fits$Cancer
+	r.fits.b = r.fits[!r.fits$Data%in%c("Met detection"),]
+	r.fits.a = r.fits[r.fits$Data%in%c("Met detection"),]
+ 
+	r.fits$Data = factor(r.fits$Data, levels = unique(r.fits$Data))
+	
+	
+	
+	Atotal1.a<- ggplot(r.fits.a, aes(x = Data, y = NRMSE, fill=Type)) +
+  	geom_bar(stat = "identity")+scale_fill_manual( values=c(blue)) + 
+ 	 facet_grid(Cancer2 ~ ., scales = "fixed", space = "fixed") + 
+ 	 theme_classic()+
+ 	 scale_y_continuous(name="Root mean squared error (probability)", breaks=c(0,0.02, 0.04), labels=c("0","0.02","0.04"), limits=c(0, 0.045))+
+ 	 scale_x_discrete(name="")+
+ 	 # ggtitle("a")+
+ 	 # guides(fill=guide_legend(title=NULL))+
+ 	 theme(axis.title.y=element_text(size=9),
+ 	 	axis.text.y = element_text(size=8),
+		axis.text.x = element_text(angle=60, hjust = 1, size=8), 
+		panel.background = element_rect(fill="white", color = "gray60"),
+           panel.grid.major = element_blank(), 
+           plot.margin = 	margin(5, 3, 0, 0),
+			strip.text.y = element_blank(),
+			strip.background = element_blank(),
+			axis.title.x = element_text(hjust=0, vjust = 14, color="gray30", size = 8),
+			#plot.title = element_text(lineheight = 0.05, hjust = -0.25, vjust = -67, face="bold",size=12),
+			plot.title= element_blank(),
+			 legend.position = "none")
+
+Atotal1.b<- ggplot(r.fits.b, aes(x = Data, y = NRMSE, fill=Type)) +
+  	geom_bar(stat = "identity")+scale_fill_manual( values=c(blue,blue)) + 
+ 	 facet_grid(Cancer2 ~ ., scales = "fixed", space = "fixed") + 
+ 	 theme_classic()+
+ 	 scale_y_continuous(name="Root mean squared error (years)")+#, breaks=c(0, 0.5, 1, 1.5), labels=c("0","0.5", "1.0", "1.5"), limits=c(0, 1.52))
+ 	 scale_x_discrete(name="Time to death quantiles")+
+ 	 # ggtitle("a")+
+ 	  #guides(fill=guide_legend(title=NULL))+
+ 	 theme(axis.title.y=element_text(size=9),
+ 	 	axis.text.y = element_text(size=8),
+		axis.text.x = element_text(angle=60, hjust = 1, size=8), 
+		panel.background = element_rect(fill="white", color = "gray60"),
+           panel.grid.major = element_blank(), 
+           plot.margin = 	margin(5, 0, 16, 7),
+			strip.text.y = element_text(angle=0,hjust=0, size=8), 
+			strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+			axis.title.x = element_text(hjust=0.05, vjust = 2, color="gray30", size = 8),
+			#plot.title = element_text(lineheight = 0.05, hjust = -0.22, vjust = -68, face="bold",size=11), 
+			plot.title = element_blank(), 
+			legend.position = "none")
+
+ pdf("ExtendedData_Figure2.pdf", height=6.7, width=3.4)
+  multiplot(Atotal1.a, Atotal1.b, layout=matrix( 
+  c( rep(1,4), rep(2,17) ), byrow=T, ncol=21))
+ dev.off()
+
+
+    r.valfitsAll$cancer = factor( replaceCancers(( r.valfitsAll$cancer)),levels=replaceCancers(levels( r.valfitsAll$cancer)))
+	r.valfitsAll$cancer = makeReplacement(r.valfitsAll$cancer)
+	r.valfitsAll = r.valfitsAll[! r.valfitsAll$cancer =="Ovarian",]
+    r.valfitsAll$cancer = factor( r.valfitsAll$cancer)                                	
+	r.valfitsAll$axtit[r.valfitsAll$axtit=="Met incidence"] = "Met detection"
+	r.valfitsAll$y[r.valfitsAll$y==-1]<-NA
+   
+   	drawAtotal2<- function(r.fits1a){
+		                                              
+		axtita = c("0.5-th time to death quantile","Med time to death w. mets")
+		
+		r.fits1a = r.fits1a[r.fits1a$axtit %in% axtita,]
+		r.fits1a$axtit[r.fits1a$axtit=="0.5-th time to death quantile"]="All patients"
+		r.fits1a$axtit[r.fits1a$axtit=="Med time to death w. mets"]="Patients with mets"
+		
+		
+		Atotal2 <- ggplot(r.fits1a, aes(x=diameter, y = y)) +
+		theme_classic()+ 
+		geom_point(shape=20, size = 0.8)+
+		geom_line(data = r.fits1a, aes(x=diameter, y = pred, color= axtit))+
+		scale_color_manual( values=c(blue,red)) + 
+		scale_y_continuous(name="Median time to death (years)")+#, limits = c(0,7)
+		scale_x_continuous(name="Diameter (cm)", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10"))+
+		facet_grid(cancer ~ axtit, scales = "fixed", space = "fixed")+
+		 theme(axis.title=element_text(size=9), 
+		 axis.text.y = element_text(size=8), 
+		 plot.margin = 	margin(3, 1, 0, 0),
+		axis.text.x = element_text(size=8), 
+		panel.background = element_rect(fill="white", color = "gray60"),  
+		strip.text.y = element_text(size=8), 
+		strip.text.x = element_text(size=8 , lineheight=0.8), 
+		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+		plot.title = element_blank(), 
+		legend.position="none")
+		Atotal2
+	}
+	
+	canc.sel=c("Gastric","Colon" ,"Renal")   
+	r.fits1a.main = r.valfitsAll[r.valfitsAll$cancer %in% canc.sel,]
+
+	Atotal2.main<-drawAtotal2(r.fits1a.main)
+	
+	r.fits1a.ext = r.valfitsAll[!r.valfitsAll$cancer %in% canc.sel,]
+	Atotal2.ext<-drawAtotal2(r.fits1a.ext)
+	
+	
+	
+	drawAtotal3<- function(r.fits1){
+
+		axtitb = "Met detection"
+		r.fits1b = r.fits1[r.fits1$axtit==axtitb,]
+	
+		axtitcs =c( "Met probability", "Met probability up","Met probability down")
+		axtitc = "Met probability"
+		r.fits1cpoint = r.fits1[r.fits1$axtit == axtitc,]
+		r.fits1c = r.fits1[r.fits1$axtit %in% axtitcs,]
+		r.fits1c.c = rbind(r.fits1c, r.fits1b)
+		
+		
+		r.fits1c.c$datatype = rep("Met detection", nrow(r.fits1c.c))	
+		r.fits1c.c$datatype[r.fits1c.c$axtit =="Met probability"]= "Cancer death"
+		r.fits1c.c$datatype[r.fits1c.c$axtit =="Met probability up"]= "Cancer death"
+		r.fits1c.c$datatype[r.fits1c.c$axtit =="Met probability down"]= "Cancer death"
+		r.fits1c.c$datatype = factor( r.fits1c.c$datatype, levels = c("Met detection","Cancer death") )
+		r.fits1cpoint$datatype = factor( rep("Cancer death", nrow(r.fits1cpoint)), levels = c("Met detection","Cancer death"))
+		r.fits1b$datatype = factor( r.fits1b$axtit, levels = c("Met detection","Cancer death"))
+		Atotal3 <- ggplot(r.fits1c.c, aes( x=diameter, y =  y, color=axtit, shape = axtit  )) +
+		theme_classic()+
+		scale_color_manual( values= c("black","black","gray20","gray20" ))+
+		scale_shape_manual( values = c(20,20,6,2))+
+		geom_point( size = 0.8 )+
+		facet_grid(cancer ~ datatype, scales = "fixed", space = "fixed" )+
+		geom_line(data = r.fits1cpoint, aes(x=diameter, y = pred), color = red )+
+		geom_line(data = r.fits1b, aes(x=diameter, y = pred), color = blue )+
+		scale_y_continuous(name= "Probability", breaks= c( 0, 0.2, 0.4, 0.6, 0.8, 1.0 ), 
+		labels=c( "0.0", "0.2", "0.4", "0.6", "0.8", "1.0" ) ) +
+		scale_x_continuous(name="Diameter (cm)", breaks=c( 0, 2, 4, 6, 8, 10 ), labels=c( "0", "2", "4", "6", "8", "10" )) +
+		 theme( axis.title=element_text(size=9),
+		 axis.text = element_text(size=8),
+		 plot.margin = margin(3, 1, 0 ,0),
+		panel.background = element_rect(fill="white", color = "gray60"), 
+		strip.text = element_text(size=8), 
+		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+		#plot.title = element_text(lineheight = 0.05, hjust = -0.25, vjust = -65, face="bold",size=11), 
+		plot.title=element_blank(),
+		legend.position="none")
+		Atotal3
+	}
+	
+	Atotal3.main = drawAtotal3(r.fits1a.main)
+	Atotal3.ext = drawAtotal3(r.fits1a.ext)
+			
+	km.data$PSurvival = km.data$Survival*100
+	km.data$Cohort = factor(km.data$Cohort, levels = c("Autopsy", "Adjuvant"))
+	appr$Model1 = factor(appr$Model, levels = c("Prediction","Haeno et al.","Data"))
+	Atotal4 = ggplot(km.data, aes(x = Years, y = PSurvival))+geom_line()+
+	geom_ribbon(data= km.data,aes(ymin=lci*100,ymax=uci*100),alpha=0.17)+
+	geom_line(data = appr, aes(x=years, y = survival*100, color = Model1))+
+	scale_color_manual(values=c(red,orange,"black"))+
+	#scale_fill_manual(name="Parameter",values=c("darkgreen","yellowgreen"),labels=expression(t[0],t[1]))+
+	facet_grid( .~Cohort, scales = "fixed", space = "fixed")+
+	theme_classic()+ggtitle("e")+
+	guides(color=guide_legend(title=NULL,ncol=1))+
+	scale_y_continuous(name="% Survival")+
+	scale_x_continuous(name="Years", limits = c(0,4.5))+
+	theme(plot.margin = margin(10, 45, 1, 0), 
+	axis.title=element_text(size=9),
+	axis.text.y = element_text(size=8) ,axis.text.x = element_text(size=8),
+	plot.title = element_blank(),
+	panel.background = element_rect(fill="white", color = "gray60"), 
+	strip.text = element_text(size=8), 
+	legend.position ="none",
+	strip.background = element_rect(colour="gray60", fill="white", size=0.5, linetype="solid"))
+	
+	 
+ 
+	 pdf("Figure2.pdf", height=8, width=2.9)
+	  multiplot( Atotal3.main, Atotal2.main ,  Atotal4, layout=matrix( 
+	 c(  rep( 1, 22),
+	 	 rep( NA, 4), 
+	     rep( 2, 21),
+	     rep( NA, 4),
+	     rep(3, 10)     
+	   ), byrow=T, ncol=1))
+	 dev.off()
+	 
+	 	 pdf("ExtendedData_Figure1.pdf", height=7.5, width=6.1)
+	  multiplot( Atotal3.ext, Atotal2.ext ,layout=matrix( 
+	 c(  rep( 1, 20),NA, rep( 2, 20)), byrow=T, nrow=1))
+	 dev.off()
+
+}
+
+## Draw Figure 3 with fitted parameters
+Figure3 <- function(parameters, preds, r.valfitsAll, par.h){
+	
+	parameters$Cancer = factor( replaceCancers(( parameters$Cancer)),levels=replaceCancers(levels( parameters$Cancer)))
+	parameters = parameters[!parameters$Cancer=="Ovarian",]
+	# order by the values
+	tot = parameters[ parameters$Parameter=="t0", c("Time","Cancer")]
+	# aggregate(parameters[parameters$Parameter%in%c("t0","h","a"),]$Time, by=list( Cancer= parameters[parameters$Parameter%in%c("t0","h","a"),]$Cancer), FUN=sum)
+	
+	Cancers = as.character( tot$Cancer[order(tot$Time)])
+	
+	parameters$Cancer = factor( parameters$Cancer, levels = Cancers)
+	
+	parameters1a = parameters[parameters$Parameter%in%c("t0","t1"),]
+	parameters1b = parameters[parameters$Parameter%in%c("a"),] 
+	
+	
+	
+	##### Time interval parameters -- panel a
+  p1a <- ggplot(parameters1a,aes(x=Cancer,y=Time,fill=Parameter))+
+  geom_bar(stat="identity",position="dodge")+
+  theme_classic()+
+  coord_flip()+
+   	labs(y="")+
+  scale_y_continuous(name="")+ 
+  scale_fill_manual(name="Parameter" ,values=c("yellowgreen","darkgreen"),labels= expression(delta[0],delta[1]) )+
+  guides(fill=guide_legend(title=NULL, ncol =1))+
+  theme(
+  axis.title.x=element_text(size=8),
+  axis.title.y=element_blank(),
+  axis.text.y = element_text(size=8),
+  axis.text.x = element_text(size=8),
+  panel.background = element_rect(fill="white", color = "gray60"), 
+  panel.grid.major.x = element_line( size=.1, color="gray" ) ,
+  panel.grid.major.y = element_line( size=.1, color="gray" ) , 
+  legend.position = "bottom", 
+  legend.title =element_text(size = 7), 
+  legend.text=element_text(size=7), 
+  legend.background = element_rect(fill=alpha('white', 0.1)),
+  legend.key.size = unit(0.25, "cm") ,
+  legend.margin=margin(-1, 0,1,-1),
+  plot.margin = 	margin(1, 1, 1, 1) )
+
+
+	#### Analyze what the values in med time to death w mets come from -parameter h
+	r.valfitsAll$Cancer = factor( replaceCancers(( r.valfitsAll$cancer)),levels=replaceCancers(levels( r.valfitsAll$cancer)))
+	par.h$Cancer = factor( replaceCancers(( par.h$Cancer)),levels=replaceCancers(levels( par.h$Cancer)))
+		
+	r.w.mets = r.valfitsAll[r.valfitsAll$axtit=="Med time to death w. mets"  ,]
+	avg.w.mets.pred = aggregate(r.w.mets$pred, by=list( Cancer= r.w.mets$Cancer), FUN=mean, na.rm = T)
+	avg.w.mets.pred$type= rep("Prediction",nrow(avg.w.mets.pred))
+	
+	summ.h  = data.frame( rbind(avg.w.mets.pred, data.frame(Cancer = par.h[, "Cancer"], x = par.h[,"Time"], type = rep("Prolongation h", nrow(par.h)))) )
+	summ.h$type = factor(summ.h$type)
+	summ.h = summ.h[summ.h$Cancer!="Ovarian",]
+	summ.h$Cancer = factor(summ.h$Cancer, levels = Cancers)
+	Atotalh<- ggplot(summ.h, aes(x = Cancer, y = x, fill=type)) +
+  	geom_bar(stat = "identity",position="dodge")+
+  	scale_fill_manual( values=c( "red", "steelblue")) + 
+ 	theme_classic()+
+ 	coord_flip()+
+ 	labs(y="")+
+ 	guides(fill=guide_legend(title=NULL, ncol = 1))+
+ 	 theme(axis.title.y=element_blank(),
+ 	 	axis.text.y = element_blank(),
+		axis.text.x = element_text(size=8), 
+		panel.background = element_rect(fill="white", color = "gray60"),
+		  panel.grid.major.x = element_line( size=.1, color="gray" ) ,
+  		panel.grid.major.y = element_line( size=.1, color="gray" ) , 
+        panel.grid.major = element_blank(), 
+        plot.margin = 	margin(1, 1, 1, 2),
+		strip.text.y = element_text(angle=0,hjust=0, size=8), 
+		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+		axis.title.x = element_text(size=8),
+		legend.position="bottom",
+		legend.background = element_rect(alpha('white', 0.0)),
+		legend.text=element_text(size=7), 
+		legend.key.size = unit(0.25, "cm"),
+		legend.margin=margin(-1, 0,1,-1))
+
+
+### Generate data points from the b distribution for each cancer 
+
+setaside = c("Ovarian")
+parameters1 = parameters[!parameters$Cancer%in%setaside, ]
+stds = parameters1[parameters1$Parameter == "std", "Time"]
+medians = parameters1[parameters1$Parameter == "median", "Time"]
+
+b_dist = NULL
+locs = parameters[parameters$Parameter == "location", ]
+scals=parameters[parameters$Parameter == "scale", ]
+
+for (cancer in Cancers){
+	c1 = locs[locs$Cancer ==cancer, "Time"]
+	c2 = scals[scals$Cancer == cancer, "Time"]
+	std = parameters[(parameters$Parameter == "std"&parameters$Cancer == cancer),"Time"]
+	me = parameters[(parameters$Parameter == "median"&parameters$Cancer == cancer),"Time"]
+	
+	if (std>5)
+		var = "High"
+	else
+		var = "Low"
+	no = 100000
+	b_dist = rbind(b_dist, data.frame( LogNorm = rlnorm(no, meanlog = c1, sdlog = c2), Cancer = rep(cancer, no), Var = rep(var,no ), Std = rep(std, no), Med = rep(me, no)))
+}
+
+
+b_dist1 = b_dist[!b_dist$Cancer %in% setaside,]
+Cancers2 = as.character( unique(b_dist1$Cancer) )
+Stds2 = unique(b_dist1$Std)
+Meds2 = unique(b_dist1$Med)
+
+Cancers2 = Cancers2[order(Meds2)]
+
+b_dist1$Cancer = factor(b_dist1$Cancer, levels = Cancers2)
+
+
+p2a = ggplot(b_dist1, aes(x=Cancer, y=LogNorm)) +
+ #geom_violin(trim=FALSE, aes(fill=Var), color="black", alpha=0.5)+scale_colour_gradient(limits=c(3, 4), low="red")
+ #scale_fill_manual(values=c("purple","orange"))+
+ geom_violin(trim=FALSE, color="black", alpha=0.6)+
+ scale_fill_gradient(limits=c(min(b_dist1$Std), max(b_dist1$Std)), low="yellow", high="purple4")+
+ labs(y="Bottleneck b")+
+ geom_boxplot(outlier.size = 0.1, fill=NA,alpha=0.1,width=0.8)+
+ theme_classic()+
+ theme(
+ axis.text.x = element_text( size=8),
+ axis.title.y=element_blank(),
+ axis.title.x = element_text( size=8),
+ axis.text.y = element_text(size=8),
+ plot.title = element_blank(),
+  panel.background = element_rect(fill="white", color = "gray60") ,
+ plot.margin = 	margin(1, 1, 27, 1) ,
+  legend.position = "bottom",
+ #legend.justification="right",
+ legend.text=element_text(size=7), 
+ legend.title=element_text(size=7),
+ legend.key.size = unit(0.25, "cm"),
+ legend.margin=margin(-1, -1,-1,-1)
+ )+	coord_flip(ylim = c(0,35))#+ coord_cartesian(ylim = c(0,35))
+
+par2a = parameters1b
+par2a$Cancer = factor(par2a$Cancer, levels = Cancers)
+
+p1b.a <- ggplot(par2a,aes(x=Cancer,y=Time))+#,fill="yellow"
+  geom_bar(stat="identity",position="dodge", width = 0.7)+
+  theme_classic()+
+  coord_flip()+
+ scale_y_continuous(name="",breaks = c(0, 0.5, 1), labels=c("0.0", "0.5", "1.0"),limits=c(0, 1.1))	+
+ # scale_fill_gradient(limits=c(min(b_dist1$Std), max(b_dist1$Std)), low="yellow", high="purple4")+
+  guides(fill=guide_legend(direction="horizontal"))+
+  theme(axis.text.x = element_text(size=8), 
+ axis.title.x = element_text( size=8),
+  axis.title.y=element_blank(),
+  axis.text.y = element_blank(),
+ legend.position="bottom",
+ 		legend.key.size = unit(0.25, "cm"),
+  panel.background = element_rect(fill="white", color = "gray60"), 
+  panel.grid.major.x = element_line( size=.1, color="gray" ) ,
+  panel.grid.major.y = element_line( size=.1, color="gray" ) ,
+plot.margin = 	margin(1, 1, 27, 2) )
+
+
+
+pdf("Figure3.pdf", height=2.5, width=5.7)
+#multiplot(p1a, p1b.a, p1b.b, p1b.c,  p2a, p2b , p2c, pred.f.a, pred.f.b, pred.c,  pred.e, pred.d,
+multiplot(p1a, Atotalh, p1b.a, p2a, layout=matrix( 
+ c( rep(1, 52),  rep(2, 24), rep(3,18), NA,NA,NA, NA,rep(4, 47) ), byrow=T, nrow = 1) )
+dev.off()
+
+}
+
+
+################################################################################################
+################################################################################################
+#### Predictions. For Figure 4 equivalent in the paper, use version = "main", 
+#### for Extended data figure use version = "supp"
+################################################################################################
+################################################################################################
+
+Figure4<-function(preds, ver="main"){
+
+hth=3.4
+#selcanc = c("Head & neck" ,"Colon","Breast lob")
+selcanc = c("Renal","Pancreatic", "Breast lob")
+#selcanc = c("Colon","Gastric", "Renal")
+
+tit="Figure4.pdf"
+
+if (ver=="supp"){
+	hth=9.2
+	#selcanc = c( "Endometrial","Bladder", "Rectal",'Lung',"Breast","Colon muc","Renal","Esophageal","Gastric", "Pancreatic")
+	#selcanc = c( "Head & neck" ,"Colon","Endometrial","Bladder", "Rectal",'Lung',"Breast","Colon muc","Esophageal","Gastric")
+	selcanc = c( "Head & neck" ,"Pancreatic","Endometrial","Bladder", "Rectal",'Lung',"Breast","Colon muc","Esophageal","Breast lob")
+	tit="ExtendedData_Figure3.pdf"
+}
+preds1 = data.frame(preds)
+preds1$Cancer = factor(preds1$Cancer)
+preds1$Cancer = factor( replaceCancers(( preds1$Cancer)),levels=replaceCancers(levels(  preds1$Cancer)))
+
+#### Printouts before cancers get selected for Figure 4.
+prints = preds1[preds1$pred%in%c("% met prob increase due to surg delay","% met prob decrease due to immunotherapy","% met prob decrease due to chemotherapy"),]
+
+doPrint<- function( sel, tit, add="Marginal" ){
+	prints = 	prints[prints$pred==sel,]
+	prints.marg = prints[prints$additional ==add,]
+	prints.indv = prints[prints$additional !=add,]
+	print(tit)
+	cat("Maximum", add, "\n")
+	print( prints.marg[which.max(prints.marg$y),])
+
+	print("Maximum individual")
+	print( prints.indv[which.max(prints.indv$y),])
+
+
+}
+
+doPrint( "% met prob increase due to surg delay","Surgery delay")
+doPrint( "% met prob decrease due to chemotherapy","Chemotherapy boost")
+doPrint("% met prob decrease due to immunotherapy", "Vaccine")
+
+
+preds1 = preds1[preds1$Cancer%in%selcanc,]
+preds1$Cancer = factor(preds1$Cancer, levels = selcanc)
+
+
+preds11 = preds1[preds1$pred%in%c("% met prob increase due to surg delay","% met prob decrease due to immunotherapy","% met prob decrease due to chemotherapy"),]
+colnames(preds11) = c("Diameter","y","pred","Mb","Change","Cancer")
+#### For the sake of clarity of the figure in the main text, we remove the weaker change 
+
+if (ver=="main"){
+	preds11 <- preds11[!preds11$Change%in%c("8", "10%"),]
+}else{
+	preds11$Change= factor(preds11$Change, levels=c("16","8","20%","10%"))
+}
+preds11$Mb = factor(preds11$Mb)
+preds11$y[preds11$y == -Inf] <- NA
+colores = rev( c("black","#B79F00"  , "#00BA38" ,"#619CFF"  ) )
+
+axtit = "% met prob increase due to surg delay"
+preds.c = preds11[preds11$pred==axtit,]
+
+pred.c <- ggplot(preds.c, aes(x=Diameter, y =(y), color=Mb, linetype = Change)) +
+	 theme_classic()+
+	 geom_line()+
+	 guides(color=guide_legend(ncol=3),linetype=guide_legend(ncol=2)) +
+	scale_color_manual(values= colores)+#, , "#F564E3"#"#F8766D",  "#00BFC4"
+	 scale_y_continuous(name="Increase of cancer death probability")+   #scale_x_discrete(name="k")+
+	 scale_x_continuous(name="Diameter (cm)", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) +
+	 facet_grid(Cancer ~ ., scales = "fixed", space = "fixed")+
+	  theme( axis.title=element_text(size=8),
+	  axis.text.y = element_text(size=8),
+	  plot.margin = 	margin(10, 1, 50,1),
+		 axis.text.x = element_text(size=8),
+		 panel.background = element_rect(fill="white", color = "gray60"), 
+		 strip.text = element_text(size=8), 
+		 strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+		plot.title = element_text(size=8),
+		 legend.position = c(0.25,-0.3),
+  legend.text=element_text(size=7), 
+   legend.title=element_blank(),
+   legend.background = element_rect(alpha('white', 0.0)),
+  legend.key.size = unit(0.3, "cm"),
+  legend.margin=margin(-1, -1,-1,-1))+ggtitle("By surgery delay")
+
+
+
+axtit = "% met prob decrease due to immunotherapy"
+preds.d = preds11[preds11$pred==axtit,]
+
+pred.d <- ggplot(preds.d, aes(x=Diameter, y =(y), color= Mb , linetype = Change)) +
+	theme_classic()+
+	geom_line()+
+	guides(color=guide_legend(ncol=6), linetype=guide_legend(ncol=2)) +
+	scale_color_manual(values= colores)+#"#F8766D",
+	scale_y_continuous(name= "Decrease of cancer death probability")+ 
+	scale_x_continuous(name="Diameter (cm)", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) + #scale_x_discrete(name="k")+
+	facet_grid(Cancer ~ ., scales = "fixed", space = "fixed")+
+	guides(color=guide_legend(ncol=4)) +
+	 theme( axis.title=element_text(size=8),
+	 axis.text.y = element_text(size=8),
+	 plot.margin = 	margin(10, 1, 50,1),
+		axis.text.x = element_text(size=8),
+		panel.background = element_rect(fill="white", color = "gray60"), 
+		strip.text = element_text(size=8), 
+		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+			plot.title = element_text(size=8),
+		legend.position = c(0.25,-0.3),
+		 legend.text=element_text(size=7), 
+		 legend.background = element_rect(alpha('white', 0.0)),
+  legend.title=element_blank(),
+ legend.key.size = unit(0.3, "cm"),
+ legend.margin=margin(-1, -1,-1,-1))+ggtitle("By bottleneck boost")
+
+ 
+ axtit = "% met prob decrease due to chemotherapy"
+preds.e = preds11[preds11$pred==axtit,]
+if (sum(preds.e$y<0, na.rm=T)>0){
+preds.e[which(preds.e$y<0) ,]$y<-NA
+}
+pred.e <- ggplot(preds.e, aes(x=Diameter, y =(y), color= Mb, linetype=Change )) +
+	theme_classic()+
+	geom_line()+
+	#scale_color_manual(values=rev( c("chartreuse","cyan2","brown1","darkorchid4") ))+
+	guides(color=guide_legend(ncol=6), linetype=guide_legend(ncol=2)) +
+	scale_color_manual(values= colores )+#"#F8766D",
+	scale_y_continuous(name="Decrease of cancer death probability",breaks=c(0,0.01,0.02,0.03), labels=c("0.00","0.01","0.02","0.03"),limits=c(0,0.035) )+ 
+	scale_x_continuous(name="Diameter (cm)", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) + #scale_x_discrete(name="k")+
+	facet_grid(Cancer ~ ., scales = "fixed", space = "fixed")+
+	guides(color=guide_legend(ncol=4)) +
+	 theme( axis.title=element_text(size=8),
+	 axis.text.y = element_text(size=8),
+	 plot.margin = margin(10, 1, 50,1),
+		axis.text.x = element_text(size=8),
+		panel.background = element_rect(fill="white", color = "gray60"), 
+		strip.text = element_text(size=8), 
+		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
+		plot.title = element_text(size=8),
+	legend.position = c(0.25,-0.3),
+	legend.background = element_rect(alpha('white', 0.0)),
+ legend.text=element_text(size=7), 
+  legend.title=element_blank(),
+ legend.key.size = unit(0.3, "cm"),
+ legend.margin=margin(-1, -1,-1,-1))+ggtitle("By chemotherapy boost")
+ 
+
+
+	pdf(tit, height=hth, width=5.5)
+	multiplot( pred.c,  pred.e, pred.d,
+	 layout=matrix( c( rep(1, 30), rep(NA,4), rep(2,29), rep(NA,4), rep(3, 29) ), byrow=T,nrow=1) )
+	dev.off()
+	
+	if (ver=="supp"){
+		small=preds.c[preds.c$Cancer%in%c("Colon","Colon muc", "Head & neck")&preds.c$Mb=="Marginal"&preds.c$Change==16,]
+		print("Largest from small marginal impacts of surgery delay")
+		print(small[which.max(small$y),])
+	}
 }
 
 ### This combines several summaries in one figure - not used in the paper in the end.
@@ -286,17 +781,6 @@ panel.spacing.y=unit(0.3, "lines"), legend.margin=margin(-1, -1,0,-1))
 	#margin(-3, 20, -13, 11)
 	
 
-	# #  
-	# pdf("Figure2.pdf", height=6, width=7.20472441)
- 
- 
-	# multiplot(Atotal1.a, Atotal1.b,  Atotal2 , Atotalh, Atotal3,  Atotal4, layout=matrix( 
-	# c(  rep( c(rep(1,4),rep(2,12),  NA, rep(3,12),NA, rep(4,7) ), 15), # The first 8 rows, 20 columns each
-	# rep( c( rep(1,4), rep(2,12), NA, rep(5,12),NA, rep(6,7) ), 15) # The next 5 rows, 20 columns each
-	# ),byrow=T, ncol=37))
-
-
-	# dev.off()
  
  
  pdf("Figure2_large.pdf", height=6.9, width=6)
@@ -309,870 +793,4 @@ panel.spacing.y=unit(0.3, "lines"), legend.margin=margin(-1, -1,0,-1))
    ), byrow=T, ncol=29))
  dev.off()
 }
-
-Figure2<- function(r.fits, r.val, r.valfitsAll, km.data, appr, par.h){
-	red="red3"
-	blue="royalblue3"
-	orange="darkorange2"
-
-
-	r.fits$Cancer= factor( replaceCancers(( r.fits$Cancer)),levels=replaceCancers(levels( r.fits$Cancer)))
-	r.fits$Cancer = makeReplacement(r.fits$Cancer)
-	r.fits = r.fits[!r.fits$Cancer =="Ovarian",]
-		
-	tot = aggregate(r.fits$NRMSE, by=list( Cancer= r.fits$Cancer), FUN=function(x){sum(x, na.rm = T)/sum(!is.na(x))})
-	Cancers = as.character( tot$Cancer[order(tot$x)])
-	r.fits$Cancer = factor( r.fits$Cancer, levels = Cancers)
-
-	r.fits$Data = gsub(" time to death quantile", "", r.fits$Data )
-	#r.fits$Data = gsub("w. mets", "with metastases", r.fits$Data )
-	r.fits$Data = gsub(" rate", "", r.fits$Data )
-	r.fits$Data = gsub("0.5-th", "0.50-th", r.fits$Data )
-	r.fits$Data[r.fits$Data=="Met incidence"] = "Met detection"
-	r.fits$Cancer2=r.fits$Cancer
-	r.fits.b = r.fits[!r.fits$Data%in%c("Met detection"),]
-	r.fits.a = r.fits[r.fits$Data%in%c("Met detection"),]
- 
-	r.fits$Data = factor(r.fits$Data, levels = unique(r.fits$Data))
-	
-
-		
-	
-	
-	Atotal1.a<- ggplot(r.fits.a, aes(x = Data, y = NRMSE, fill=Type)) +
-  	geom_bar(stat = "identity")+scale_fill_manual( values=c(blue)) + 
- 	 facet_grid(Cancer2 ~ ., scales = "fixed", space = "fixed") + 
- 	 theme_classic()+
- 	 scale_y_continuous(name="Root mean squared error (rate)", breaks=c(0,0.02, 0.04), labels=c("0","0.02","0.04"), limits=c(0, 0.045))+
- 	 scale_x_discrete(name="")+
- 	 # ggtitle("a")+
- 	 # guides(fill=guide_legend(title=NULL))+
- 	 theme(axis.title.y=element_text(size=9),
- 	 	axis.text.y = element_text(size=8),
-		axis.text.x = element_text(angle=60, hjust = 1, size=8), 
-		panel.background = element_rect(fill="white", color = "gray60"),
-           panel.grid.major = element_blank(), 
-           plot.margin = 	margin(5, 3, 0, 0),
-			strip.text.y = element_blank(),
-			strip.background = element_blank(),
-			axis.title.x = element_text(hjust=0, vjust = 14, color="gray30", size = 8),
-			#plot.title = element_text(lineheight = 0.05, hjust = -0.25, vjust = -67, face="bold",size=12),
-			plot.title= element_blank(),
-			 legend.position = "none")
-
-Atotal1.b<- ggplot(r.fits.b, aes(x = Data, y = NRMSE, fill=Type)) +
-  	geom_bar(stat = "identity")+scale_fill_manual( values=c(blue,blue)) + 
- 	 facet_grid(Cancer2 ~ ., scales = "fixed", space = "fixed") + 
- 	 theme_classic()+
- 	 scale_y_continuous(name="Root mean squared error (years)")+#, breaks=c(0, 0.5, 1, 1.5), labels=c("0","0.5", "1.0", "1.5"), limits=c(0, 1.52))
- 	 scale_x_discrete(name="Time to death quantiles")+
- 	 # ggtitle("a")+
- 	  #guides(fill=guide_legend(title=NULL))+
- 	 theme(axis.title.y=element_text(size=9),
- 	 	axis.text.y = element_text(size=8),
-		axis.text.x = element_text(angle=60, hjust = 1, size=8), 
-		panel.background = element_rect(fill="white", color = "gray60"),
-           panel.grid.major = element_blank(), 
-           plot.margin = 	margin(5, 0, 16, 7),
-			strip.text.y = element_text(angle=0,hjust=0, size=8), 
-			strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-			axis.title.x = element_text(hjust=0.05, vjust = 2, color="gray30", size = 8),
-			#plot.title = element_text(lineheight = 0.05, hjust = -0.22, vjust = -68, face="bold",size=11), 
-			plot.title = element_blank(), 
-			legend.position = "none")
-
- pdf("ExtendedData_Figure2.pdf", height=6.7, width=3.4)
-  multiplot(Atotal1.a, Atotal1.b, layout=matrix( 
-  c( rep(1,4), rep(2,17) ), byrow=T, ncol=21))
- dev.off()
-
-
-    r.valfitsAll$cancer = factor( replaceCancers(( r.valfitsAll$cancer)),levels=replaceCancers(levels( r.valfitsAll$cancer)))
-	r.valfitsAll$cancer = makeReplacement(r.valfitsAll$cancer)
-	r.valfitsAll = r.valfitsAll[! r.valfitsAll$cancer =="Ovarian",]
-    r.valfitsAll$cancer = factor( r.valfitsAll$cancer)                                	
-	r.valfitsAll$axtit[r.valfitsAll$axtit=="Met incidence"] = "Metastasis detection"
-	r.valfitsAll$y[r.valfitsAll$y==-1]<-NA
-   
-   	drawAtotal2<- function(r.fits1a){
-		                                              
-		axtita = c("0.5-th time to death quantile","Med time to death w. mets")
-		
-		r.fits1a = r.fits1a[r.fits1a$axtit %in% axtita,]
-		r.fits1a$axtit[r.fits1a$axtit=="0.5-th time to death quantile"]="Overall"
-		r.fits1a$axtit[r.fits1a$axtit=="Med time to death w. mets"]="With metastases"
-		
-		
-		Atotal2 <- ggplot(r.fits1a, aes(x=diameter, y = y)) +
-		theme_classic()+ 
-		geom_point(shape=1, size = 0.8)+
-		geom_line(data = r.fits1a, aes(x=diameter, y = pred, color= axtit))+
-		scale_color_manual( values=c(blue,red)) + 
-		scale_y_continuous(name="Median time to death (years)")+#, limits = c(0,7)
-		scale_x_continuous(name="Diameter", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10"))+
-		facet_grid(cancer ~ axtit, scales = "fixed", space = "fixed")+
-		 theme(axis.title=element_text(size=9), 
-		 axis.text.y = element_text(size=8), 
-		 plot.margin = 	margin(3, 1, 0, 0),
-		axis.text.x = element_text(size=8), 
-		panel.background = element_rect(fill="white", color = "gray60"),  
-		strip.text.y = element_text(size=8), 
-		strip.text.x = element_text(size=8 , lineheight=0.8), 
-		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		plot.title = element_blank(), 
-		legend.position="none")
-		Atotal2
-	}
-	
-	canc.sel=c("Gastric","Colon" ,"Renal")   
-	r.fits1a.main = r.valfitsAll[r.valfitsAll$cancer %in% canc.sel,]
-
-	Atotal2.main<-drawAtotal2(r.fits1a.main)
-	
-	r.fits1a.ext = r.valfitsAll[!r.valfitsAll$cancer %in% canc.sel,]
-	Atotal2.ext<-drawAtotal2(r.fits1a.ext)
-	
-	
-	
-	drawAtotal3<- function(r.fits1){
-
-		axtitb = "Metastasis detection"
-		r.fits1b = r.fits1[r.fits1$axtit==axtitb,]
-	
-		axtitcs =c( "Met probability", "Met probability up","Met probability down")
-		axtitc = "Met probability"
-		r.fits1cpoint = r.fits1[r.fits1$axtit == axtitc,]
-		r.fits1c = r.fits1[r.fits1$axtit %in% axtitcs,]
-		r.fits1c.c = rbind(r.fits1c, r.fits1b)
-		
-		
-		r.fits1c.c$datatype = rep("Metastasis detection", nrow(r.fits1c.c))	
-		r.fits1c.c$datatype[r.fits1c.c$axtit =="Met probability"]= "Cancer mortality"
-		r.fits1c.c$datatype[r.fits1c.c$axtit =="Met probability up"]= "Cancer mortality"
-		r.fits1c.c$datatype[r.fits1c.c$axtit =="Met probability down"]= "Cancer mortality"
-		r.fits1c.c$datatype = factor( r.fits1c.c$datatype, levels = c("Metastasis detection","Cancer mortality") )
-		r.fits1cpoint$datatype = factor( rep("Cancer mortality", nrow(r.fits1cpoint)), levels = c("Metastasis detection","Cancer mortality"))
-		r.fits1b$datatype = factor( r.fits1b$axtit, levels = c("Metastasis detection","Cancer mortality"))
-		Atotal3 <- ggplot(r.fits1c.c, aes( x=diameter, y =  y, color=axtit, shape = axtit  )) +
-		theme_classic()+
-		scale_color_manual( values= c("black","black","gray20","gray20" ))+
-		scale_shape_manual( values = c(20,1,1,1))+
-		geom_point( size = 0.8 )+
-		facet_grid(cancer ~ datatype, scales = "fixed", space = "fixed" )+
-		geom_line(data = r.fits1cpoint, aes(x=diameter, y = pred), color = red )+
-		geom_line(data = r.fits1b, aes(x=diameter, y = pred), color = blue )+
-		scale_y_continuous(name= "Rate", breaks= c( 0, 0.2, 0.4, 0.6, 0.8, 1.0 ), 
-		labels=c( "0.0", "0.2", "0.4", "0.6", "0.8", "1.0" ) ) +
-		scale_x_continuous(name="Diameter", breaks=c( 0, 2, 4, 6, 8, 10 ), labels=c( "0", "2", "4", "6", "8", "10" )) +
-		 theme( axis.title=element_text(size=9),
-		 axis.text = element_text(size=8),
-		 plot.margin = margin(3, 1, 0 ,0),
-		panel.background = element_rect(fill="white", color = "gray60"), 
-		strip.text = element_text(size=8), 
-		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		#plot.title = element_text(lineheight = 0.05, hjust = -0.25, vjust = -65, face="bold",size=11), 
-		plot.title=element_blank(),
-		legend.position="none")
-		Atotal3
-	}
-	
-	Atotal3.main = drawAtotal3(r.fits1a.main)
-	Atotal3.ext = drawAtotal3(r.fits1a.ext)
-			
-	km.data$PSurvival = km.data$Survival*100
-	km.data$Cohort = factor(km.data$Cohort, levels = c("Autopsy", "Adjuvant"))
-	appr$Model1 = factor(appr$Model, levels = c("Prediction","Haeno et al.","Data"))
-	Atotal4 = ggplot(km.data, aes(x = Years, y = PSurvival))+geom_line()+
-	geom_ribbon(data= km.data,aes(ymin=lci*100,ymax=uci*100),alpha=0.17)+
-	geom_line(data = appr, aes(x=years, y = survival*100, color = Model1))+
-	scale_color_manual(values=c(red,orange,"black"))+
-	#scale_fill_manual(name="Parameter",values=c("darkgreen","yellowgreen"),labels=expression(t[0],t[1]))+
-	facet_grid( .~Cohort, scales = "fixed", space = "fixed")+
-	theme_classic()+ggtitle("e")+
-	guides(color=guide_legend(title=NULL,ncol=1))+
-	scale_y_continuous(name="% Survival")+
-	scale_x_continuous(name="Years", limits = c(0,4.5))+
-	theme(plot.margin = margin(3, 14,  1,0), 
-	axis.title=element_text(size=9),
-	axis.text.y = element_text(size=8) ,axis.text.x = element_text(size=8),
-	plot.title = element_blank(),
-	panel.background = element_rect(fill="white", color = "gray60"), 
-	legend.position ="none",
-	strip.background = element_rect(colour="gray60", fill="white", size=0.5, linetype="solid"))
-	
-	 
- 
-	 pdf("Figure2.pdf", height=7.3, width=2.9)
-	  multiplot( Atotal3.main, Atotal2.main ,  Atotal4, layout=matrix( 
-	 c(  rep( 1, 22),
-	 	 rep( NA, 2), 
-	     rep( 2, 21),
-	     rep( NA, 4),
-	     rep(3, 10)     
-	   ), byrow=T, ncol=1))
-	 dev.off()
-	 
-	 	 pdf("ExtendedData_Figure1.pdf", height=6.9, width=6.1)
-	  multiplot( Atotal3.ext, Atotal2.ext ,layout=matrix( 
-	 c(  rep( 1, 20),NA, rep( 2, 20)), byrow=T, nrow=1))
-	 dev.off()
-
-}
-
-Figure3 <- function(parameters, preds, r.valfitsAll, par.h){
-	
-	parameters$Cancer = factor( replaceCancers(( parameters$Cancer)),levels=replaceCancers(levels( parameters$Cancer)))
-	parameters = parameters[!parameters$Cancer=="Ovarian",]
-	# order by the values
-	tot = parameters[ parameters$Parameter=="t0", c("Time","Cancer")]
-	# aggregate(parameters[parameters$Parameter%in%c("t0","h","a"),]$Time, by=list( Cancer= parameters[parameters$Parameter%in%c("t0","h","a"),]$Cancer), FUN=sum)
-	
-	Cancers = as.character( tot$Cancer[order(tot$Time)])
-	
-	parameters$Cancer = factor( parameters$Cancer, levels = Cancers)
-	
-	parameters1a = parameters[parameters$Parameter%in%c("t0","t1"),]
-	parameters1b = parameters[parameters$Parameter%in%c("a"),] ## H went to figure 2
-	
-	
-	##### Time interval parameters -- panel a
-  p1a <- ggplot(parameters1a,aes(x=Cancer,y=Time,fill=Parameter))+
-  geom_bar(stat="identity",position="dodge")+
-  theme_classic()+
-  coord_flip()+
-   	labs(y="")+
-  scale_y_continuous(name="")+ 
-  scale_fill_manual(name="Parameter" ,values=c("yellowgreen","darkgreen"),labels= expression(delta[0],delta[1]) )+
-  guides(fill=guide_legend(title=NULL, ncol =1))+
-  theme(
-  axis.title.x=element_text(size=8),
-  axis.title.y=element_blank(),
-  axis.text.y = element_text(size=8),
-  axis.text.x = element_text(size=8),
-  panel.background = element_rect(fill="white", color = "gray60"), 
-  panel.grid.major.x = element_line( size=.1, color="gray" ) ,
-  panel.grid.major.y = element_line( size=.1, color="gray" ) , 
-  legend.position = "bottom", 
-  legend.title =element_text(size = 7), 
-  legend.text=element_text(size=7), 
-  legend.background = element_rect(fill=alpha('white', 0.1)),
-  legend.key.size = unit(0.25, "cm") ,
-  legend.margin=margin(-1, 0,1,-1),
-  plot.margin = 	margin(1, 1, 1, 1) )
-
-
-	#### Analyze what the values in med time to death w mets come from -parameter h
-	r.valfitsAll$Cancer = factor( replaceCancers(( r.valfitsAll$cancer)),levels=replaceCancers(levels( r.valfitsAll$cancer)))
-	par.h$Cancer = factor( replaceCancers(( par.h$Cancer)),levels=replaceCancers(levels( par.h$Cancer)))
-		
-	r.w.mets = r.valfitsAll[r.valfitsAll$axtit=="Med time to death w. mets"  ,]
-	avg.w.mets.pred = aggregate(r.w.mets$pred, by=list( Cancer= r.w.mets$Cancer), FUN=mean, na.rm = T)
-	avg.w.mets.pred$type= rep("Prediction",nrow(avg.w.mets.pred))
-	
-	summ.h  = data.frame( rbind(avg.w.mets.pred, data.frame(Cancer = par.h[, "Cancer"], x = par.h[,"Time"], type = rep("Prolongation h", nrow(par.h)))) )
-	summ.h$type = factor(summ.h$type)
-	summ.h = summ.h[summ.h$Cancer!="Ovarian",]
-	summ.h$Cancer = factor(summ.h$Cancer, levels = Cancers)
-	Atotalh<- ggplot(summ.h, aes(x = Cancer, y = x, fill=type)) +
-  	geom_bar(stat = "identity",position="dodge")+
-  	scale_fill_manual( values=c( "red", "steelblue")) + 
- 	theme_classic()+
- 	coord_flip()+
- 	labs(y="")+
- 	guides(fill=guide_legend(title=NULL, ncol = 1))+
- 	 theme(axis.title.y=element_blank(),
- 	 	axis.text.y = element_blank(),
-		axis.text.x = element_text(size=8), 
-		panel.background = element_rect(fill="white", color = "gray60"),
-		  panel.grid.major.x = element_line( size=.1, color="gray" ) ,
-  		panel.grid.major.y = element_line( size=.1, color="gray" ) , 
-        panel.grid.major = element_blank(), 
-        plot.margin = 	margin(1, 1, 1, 2),
-		strip.text.y = element_text(angle=0,hjust=0, size=8), 
-		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		axis.title.x = element_text(size=8),
-		legend.position="bottom",
-		legend.background = element_rect(alpha('white', 0.0)),
-		legend.text=element_text(size=7), 
-		legend.key.size = unit(0.25, "cm"),
-		legend.margin=margin(-1, 0,1,-1))
-
-
-par2a = parameters1b
-par2a$Cancer = factor(par2a$Cancer, levels = Cancers)
-
-
-
-
-
-### Generate data points from the b distribution for each cancer 
-
-setaside = c("Ovarian")
-parameters1 = parameters[!parameters$Cancer%in%setaside, ]
-stds = parameters1[parameters1$Parameter == "std", "Time"]
-medians = parameters1[parameters1$Parameter == "median", "Time"]
-
-b_dist = NULL
-locs = parameters[parameters$Parameter == "location", ]
-scals=parameters[parameters$Parameter == "scale", ]
-
-for (cancer in Cancers){
-	c1 = locs[locs$Cancer ==cancer, "Time"]
-	c2 = scals[scals$Cancer == cancer, "Time"]
-	std = parameters[(parameters$Parameter == "std"&parameters$Cancer == cancer),"Time"]
-	me = parameters[(parameters$Parameter == "median"&parameters$Cancer == cancer),"Time"]
-	
-	if (std>5)
-		var = "High"
-	else
-		var = "Low"
-	no = 100000
-	b_dist = rbind(b_dist, data.frame( LogNorm = rlnorm(no, meanlog = c1, sdlog = c2), Cancer = rep(cancer, no), Var = rep(var,no ), Std = rep(std, no), Med = rep(me, no)))
-}
-
-#ylim1 = boxplot.stats(b_dist$LogNorm)$stats[c(1, 5)]
-
-
-b_dist1 = b_dist[!b_dist$Cancer %in% setaside,]
-Cancers2 = as.character( unique(b_dist1$Cancer) )
-Stds2 = unique(b_dist1$Std)
-Meds2 = unique(b_dist1$Med)
-#Cancers2 = Cancers2[order(Meds2)]
-#Cancers2 = Cancers2[order(Stds2, decreasing=T)]
-Cancers2 = Cancers2[order(Meds2)]
-
-b_dist1$Cancer = factor(b_dist1$Cancer, levels = Cancers2)
-#b_dist2 = b_dist[b_dist$Cancer%in% setaside[1],]
-#b_dist3 = b_dist[b_dist$Cancer%in% setaside[2],]
-
-p1b.a <- ggplot(par2a,aes(x=Cancer,y=Time))+#,fill="yellow"
-  geom_bar(stat="identity",position="dodge", width = 0.7, alpha = 0.85)+
-  theme_classic()+
-  coord_flip()+
- scale_y_continuous(name="",breaks = c(0, 0.5, 1), labels=c("0.0", "0.5", "1.0"),limits=c(0, 1.1))	+
-  scale_fill_gradient(limits=c(min(b_dist1$Std), max(b_dist1$Std)), low="yellow", high="purple4")+
-  guides(fill=guide_legend(direction="horizontal"))+
-  theme(axis.text.x = element_text(size=8), 
- axis.title.x = element_text( size=8),
-  axis.title.y=element_blank(),
-  axis.text.y = element_blank(),
- legend.position="bottom",
- 		legend.key.size = unit(0.25, "cm"),
-  panel.background = element_rect(fill="white", color = "gray60"), 
-  panel.grid.major.x = element_line( size=.1, color="gray" ) ,
-  panel.grid.major.y = element_line( size=.1, color="gray" ) ,
-plot.margin = 	margin(1, 1, 27, 2) )
-
-
-p2a = ggplot(b_dist1, aes(x=Cancer, y=LogNorm)) +
- #geom_violin(trim=FALSE, aes(fill=Var), color="black", alpha=0.5)+scale_colour_gradient(limits=c(3, 4), low="red")
- #scale_fill_manual(values=c("purple","orange"))+
- geom_violin(trim=FALSE, color="black", alpha=0.6)+
- scale_fill_gradient(limits=c(min(b_dist1$Std), max(b_dist1$Std)), low="yellow", high="purple4")+
- labs(y="Bottleneck b")+
- geom_boxplot(outlier.size = 0.1, fill=NA,alpha=0.1,width=0.8)+
- theme_classic()+
- theme(
- axis.text.x = element_text( size=8),
- axis.title.y=element_blank(),
- axis.title.x = element_text( size=8),
- axis.text.y = element_text(size=8),
- plot.title = element_blank(),
-  panel.background = element_rect(fill="white", color = "gray60") ,
- plot.margin = 	margin(1, 1, 27, 1) ,
-  legend.position = "bottom",
- #legend.justification="right",
- legend.text=element_text(size=7), 
- legend.title=element_text(size=7),
- legend.key.size = unit(0.25, "cm"),
- legend.margin=margin(-1, -1,-1,-1)
- )+	coord_flip(ylim = c(0,35))#+ coord_cartesian(ylim = c(0,35))
-
-
-
-pdf("Figure3.pdf", height=2.5, width=5.5)
-#multiplot(p1a, p1b.a, p1b.b, p1b.c,  p2a, p2b , p2c, pred.f.a, pred.f.b, pred.c,  pred.e, pred.d,
-multiplot(p1a, Atotalh,p1b.a, p2a, layout=matrix( 
- c( rep(1, 52),  rep(2, 24), rep(3,15), NA,NA,NA, rep(4, 47) ), byrow=T, ncol = 141) )
-dev.off()
-
-}
-################################################################################################
-################################################################################################
-#### Predictions. For Figure 4 equivalent in the paper, use version = "main", 
-#### for Extended data figure use version = "supp"
-################################################################################################
-################################################################################################
-
-Figure4<-function(preds, version="main"){
-
-hth=3.4
-#selcanc = c("Head & neck" ,"Colon","Breast lob")
-selcanc = c("Renal","Pancreatic", "Breast lob")
-tit="Figure4.pdf"
-
-if (version=="supp"){
-	hth=9.4
-	#selcanc = c( "Endometrial","Bladder", "Rectal",'Lung',"Breast","Colon muc","Renal","Esophageal","Gastric", "Pancreatic")
-	selcanc = c( "Head & neck" ,"Colon","Endometrial","Bladder", "Rectal",'Lung',"Breast","Colon muc","Esophageal","Gastric")
-	tit="ExtendedData_Figure3.pdf"
-}
-preds1 = data.frame(preds)
-preds1$Cancer = factor(preds1$Cancer)
-preds1$Cancer = factor( replaceCancers(( preds1$Cancer)),levels=replaceCancers(levels(  preds1$Cancer)))
-
-#### Printouts before cancers get selected for Figure 4.
-prints = preds1[preds1$pred%in%c("% met prob increase due to surg delay","% met prob decrease due to immunotherapy","% met prob decrease due to chemotherapy"),]
-
-doPrint<- function( sel, tit, add="Marginal" ){
-	prints = 	prints[prints$pred==sel,]
-	prints.marg = prints[prints$additional ==add,]
-	prints.indv = prints[prints$additional !=add,]
-	print(tit)
-	cat("Maximum", add, "\n")
-	print( prints.marg[which.max(prints.marg$y),])
-
-	print("Maximum individual")
-	print( prints.indv[which.max(prints.indv$y),])
-
-
-}
-
-doPrint( "% met prob increase due to surg delay","Surgery delay")
-doPrint( "% met prob decrease due to chemotherapy","Chemotherapy boost")
-doPrint("% met prob decrease due to immunotherapy", "Vaccine")
-
-
-preds1 = preds1[preds1$Cancer%in%selcanc,]
-preds1$Cancer = factor(preds1$Cancer, levels = selcanc)
-
-
-preds11 = preds1[preds1$pred%in%c("% met prob increase due to surg delay","% met prob decrease due to immunotherapy","% met prob decrease due to chemotherapy"),]
-colnames(preds11) = c("Diameter","y","pred","Mb","Change","Cancer")
-preds11$Change= factor(preds11$Change)
-preds11 <-preds11[preds11$Mb != "10",]
-preds11$Mb = factor(preds11$Mb)
-preds11$y[preds11$y == -Inf] <- NA
-
-
-axtit = "% met prob increase due to surg delay"
-preds.c = preds11[preds11$pred==axtit,]
-
-pred.c <- ggplot(preds.c, aes(x=Diameter, y =(y), color=Mb, linetype = Change)) +
-	 theme_classic()+
-	 geom_line()+
-	 guides(color=guide_legend(ncol=3), linetype=guide_legend(ncol=2)) +
-	scale_color_manual(values=rev( c("black", "#B79F00" , "#00BA38" , "#00BFC4" , "#619CFF" , "#F564E3") ))+#"#F8766D",
-	 scale_y_continuous(name="Cancer mortality rate increase by delay")+   #scale_x_discrete(name="k")+
-	 scale_x_continuous(name="Diameter", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) +
-	 facet_grid(Cancer ~ ., scales = "fixed", space = "fixed")+
-	  theme( axis.title=element_text(size=9),
-	  axis.text.y = element_text(size=8),
-	  plot.margin = 	margin(1, 1, 50,1),
-		 axis.text.x = element_text(size=8),
-		 panel.background = element_rect(fill="white", color = "gray60"), 
-		 strip.text = element_text(size=8), 
-		 strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		 plot.title = element_blank(),
-		 legend.position = c(0.25,-0.3),
-  legend.text=element_text(size=7), 
-   legend.title=element_blank(),
-   legend.background = element_rect(alpha('white', 0.0)),
-  legend.key.size = unit(0.3, "cm"),
-  legend.margin=margin(-1, -1,-1,-1))
-
-
-
-axtit = "% met prob decrease due to immunotherapy"
-preds.d = preds11[preds11$pred==axtit,]
-
-pred.d <- ggplot(preds.d, aes(x=Diameter, y =(y), color= Mb , linetype = Change)) +
-	theme_classic()+
-	geom_line()+
-	guides(color=guide_legend(ncol=6), linetype=guide_legend(ncol=2)) +
-	scale_color_manual(values=rev( c("black", "#B79F00" , "#00BA38" , "#00BFC4" , "#619CFF" , "#F564E3") ))+#"#F8766D",
-	scale_y_continuous(name= "Cancer mortality rate decrease by vaccine")+ 
-	scale_x_continuous(name="Diameter", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) + #scale_x_discrete(name="k")+
-	facet_grid(Cancer ~ ., scales = "fixed", space = "fixed")+
-	guides(color=guide_legend(ncol=4)) +
-	 theme( axis.title=element_text(size=9),
-	 axis.text.y = element_text(size=8),
-	 plot.margin = 	margin(1, 1, 50,1),
-		axis.text.x = element_text(size=8),
-		panel.background = element_rect(fill="white", color = "gray60"), 
-		strip.text = element_text(size=8), 
-		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		plot.title = element_blank(),
-		legend.position = c(0.25,-0.3),
-		 legend.text=element_text(size=7), 
-		 legend.background = element_rect(alpha('white', 0.0)),
-  legend.title=element_blank(),
- legend.key.size = unit(0.3, "cm"),
- legend.margin=margin(-1, -1,-1,-1))
- 
- axtit = "% met prob decrease due to chemotherapy"
-preds.e = preds11[preds11$pred==axtit,]
-if (sum(preds.e$y<0, na.rm=T)>0){
-preds.e[which(preds.e$y<0) ,]$y<-NA
-}
-pred.e <- ggplot(preds.e, aes(x=Diameter, y =(y), color= Mb, linetype=Change )) +
-	theme_classic()+
-	geom_line()+
-	#scale_color_manual(values=rev( c("chartreuse","cyan2","brown1","darkorchid4") ))+
-	guides(color=guide_legend(ncol=6), linetype=guide_legend(ncol=2)) +
-	scale_color_manual(values=rev( c("black", "#B79F00" , "#00BA38" , "#00BFC4" , "#619CFF" , "#F564E3") ))+#"#F8766D",
-	scale_y_continuous(name="Cancer mortality rate decrease by chemo",breaks=c(0,0.01,0.02,0.03), labels=c("0.00","0.01","0.02","0.03"),limits=c(0,0.035) )+ 
-	scale_x_continuous(name="Diameter", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) + #scale_x_discrete(name="k")+
-	facet_grid(Cancer ~ ., scales = "fixed", space = "fixed")+
-	guides(color=guide_legend(ncol=4)) +
-	 theme( axis.title=element_text(size=9),
-	 axis.text.y = element_text(size=8),
-	 plot.margin = margin(1, 1, 50,1),
-		axis.text.x = element_text(size=8),
-		panel.background = element_rect(fill="white", color = "gray60"), 
-		strip.text = element_text(size=8), 
-		strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		plot.title = element_blank(),
-	legend.position = c(0.25,-0.3),
-	legend.background = element_rect(alpha('white', 0.0)),
- legend.text=element_text(size=7), 
-  legend.title=element_blank(),
- legend.key.size = unit(0.3, "cm"),
- legend.margin=margin(-1, -1,-1,-1))
- 
-
-# axtit = c("Median(# mets) at diagnosis"	, "Median(# mets) after chemo"	)
-# preds.f = preds1[preds1$pred%in%axtit,]
-
-# preds.f$pred <- gsub("Median(# mets) ", "", preds.f$pred, fixed = T)
-# colnames(preds.f)  =c("d","y","Status","additional1","additional1","Cancer")
-# preds.f$y[(preds.f$y==0 & preds.f$d>8)] = NA
-# pred.f <- ggplot(preds.f, aes(x=(d), y =(y), color=Status )) +
-	# theme_classic()+
-		# geom_line()+
-	# guides(color=guide_legend(ncol=1)) +
-	# scale_color_manual(values = c("black","brown1"))+
-	# scale_y_continuous(name="Median number of metastases",limits=c(0,250))+
-	# scale_x_continuous(name="Diameter", breaks=c(0,2,4,6,8, 10), labels=c("0","2","4","6","8","10")) +
-	# facet_grid(Cancer~., scales = "fixed", space = "fixed")+
-	 # theme( axis.title=element_text(size=9),
-	 # axis.text.y = element_text(size=8),
-	 # plot.margin = 	margin(1, 1, 50,1),
-		# axis.text.x = element_text(size=8),
-		# panel.background = element_rect(fill="white", color = "gray60"), 
-		# strip.text = element_text(size=8), 
-		# strip.background = element_rect(colour="gray60", fill="white",   size=0.5, linetype="solid"), 
-		# plot.title = element_text(lineheight = 0.05, hjust = -0.55, vjust = -25, face="bold",size=11),
-		  # panel.grid.major.x = element_line( size=.1, color="gray" ) ,
-  # panel.grid.major.y = element_line( size=.1, color="gray" ) ,
-# legend.position = c(0.3,-0.3),
- # legend.text=element_text(size=7), 
-  # legend.title=element_text(size=7),
-  # legend.background = element_rect(alpha('white', 0.0)),
- # legend.key.size = unit(0.3, "cm"),
- # legend.margin=margin(-3, -1,-1,-1))
-	
-
-	pdf(tit, height=hth, width=6.20472441)
-	multiplot( pred.c,  pred.e, pred.d,
-	 layout=matrix( c( rep(1, 30), rep(NA,3), rep(2,29), rep(NA,3), rep(3, 29) ), byrow=T,nrow=1) )
-	dev.off()
-	
-	if (version=="supp"){
-		small=preds.c[preds.c$Cancer%in%c("Colon","Colon muc", "Head & neck")&preds.c$Mb=="Marginal"&preds.c$Change==16,]
-		print("Largest from small marginal impacts of surgery delay")
-		print(small[which.max(small$y),])
-	}
-}
-
-
-###################################################################
-#### These functions below generate summary plots not featured in the manuscript but for own use of the authors
-#### Disclaimer: this code was not double checked and may contain implementation errors!
-###################################################################
-
-DrawCancerFit <- function(surv.data, data.gen, res.exp, nam=""){
-	pt.size=0.7
-	cex.p = 0.7
-	cex.l = 0.8
-	hp = 7.1
-	wp=6
-	le= length(data.gen)
-	print(nam)
-	pdf(paste(fitFolder,"/Fit_",nam,".pdf",sep=""), height=hp, width=wp)
-	par(mfrow=c(4,3))
-	par(ps=11, mar=c(3, 3.1,2.5,0.2), mgp=c(1.6,0.4,0))
-	ds=0
-	letters = c("A","B","C","D","E","F","G","H","I","J","K","L")
-	for (i in (1:le)){
-		dg = data.gen[[i]]
-		func = dg$func
-		funcnam=dg$funcnam
-		
-		pars = dg$basic.pars
-		x=dg$D
-		ds2=ds+length(x)
-		y = surv.data[(ds+1):ds2,2]
-		ds=ds2
-		xl = "Time to death"
-		tit = ""
-		lcol = "blue"
-		pars = getPars(res.exp, pars)
-		#xs = seq(0.1,10,by=0.1)
-		xs = seq(1/(2^3), 10,by=1/(2^3))
-		preds = func( xs, pars)
-	
-		switch(funcnam, 
-			medSurvExpV={
-				tit = paste(pars$quant,"th time to death quantile", sep = "")
-				plot( x = x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "black",ylim=c(0,max(surv.data[,2] )),xlim=c(0.1,10))
-				
-			}, 
-			obsMetProbExpV={
-				xl = tit="Observed metastasis rate"
-				plot( x = x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "black", ylim = c(0,1),xlim=c(0.1,10))
-				
-			}
-		)
-		mtext(letters[i], side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-		lines (x = xs, y = preds, col=lcol)
-		title(tit, cex.main=1.1)
-		
-	}
-	
-	dev.off()
-}
-
-
-DrawCancerVal <- function(surv.data, data.gen, res.exp, nam=""){
-	pt.size=0.7
-	cex.p = 0.7
-	cex.l = 0.8
-	#hp=7
-	hp = 7.1/4
-	wp=6
-	le= length(data.gen)
-	letters = c("A","B")
-	pdf(paste(fitFolder,"/Val_",nam,".pdf",sep=""), height=hp, width=wp)
-	par(mfrow=c(1,3))
-	par(ps=11,  mar=c(3, 3.1,2.5,0.2), mgp=c(1.6,0.4,0))
-
-	ds=0
-	for (i in (1:le)){
-		dg = data.gen[[i]]
-		func = dg$func
-		funcnam=dg$funcnam
-		print(funcnam)
-		pars = dg$basic.pars
-		x=dg$D
-		ds2=ds+length(x)
-		y = surv.data[(ds+1):ds2,2]
-		ds=ds2
-		tit = ""
-		lcol = "red"
-		pars = getPars(res.exp, pars)
-		xs = seq(0.1,10,by=0.1)
-		
-		switch(funcnam, 
-			PmetExpVCond={
-				xl = tit= "Metastasis probability"				
-				lcol="red"
-				plot( x = x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "black", ylim = c(0,1),xlim=c(0.1,10))
-				mtext("A", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA)
-				title(tit, cex.main=1.1)
-				
-				},
-			PmetExpVCondc={
-		
-				points( x = x, y = y, cex=1, xlab = "Tumor diameter (cm)", col = "gray", ylim = c(0,1), xlim=c(0.1,10), pch=15)},
-			PmetExpVConda={
-				#browser()
-				
-				points( x = x, y = y, cex=1, ylab=xl, pch=18, col="gray")
-				
-				preds = func( xs, pars)
-				lines (x = xs, y = preds, col=lcol)
-				},
-			medSurvExpVObsMet={
-				if (!all(y==-1)){
-					tit = "Median time to death quantile \n with metastases observed"
-					xl = "Median time to death quantile"
-					plot( x = x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "black",ylim=c(0,max(surv.data[,2] )),xlim=c(0.1,10))	
-						#lcol='darkgreen'
-					mtext("B", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA)
-					title(tit, cex.main=1.1)
-					preds = func( xs, pars)
-					lines (x = xs, y = preds, col=lcol)
-				}
-					
-			}
-		)
-		 	
-		
-	}
-	
-	
-	dev.off()
-}
-
-DrawCancerPred <- function(surv.data, data.gen, res.exp, nam=""){
-	pt.size=0.7
-	cex.p = 0.7
-	cex.l = 0.8
-	hp = 7.1*3/4
-	wp=6
-	print(nam)
-	
-	pdf(paste(fitFolder,"/Pred_",nam,".pdf",sep=""), height=hp, width=wp)
-	par(mfrow=c(3,3))
-	par(ps=11, mar=c(3, 3.1,2.5,0.2), mgp=c(1.6,0.4,0))
-	ds=0
-	dg = data.gen[[1]]	
-	pars = dg$basic.pars
-	pars = getPars(res.exp, pars)
-#	print(pars)
-#### BOTTLENECK DISTRIBUTION
-	xl ="Bottleneck density"
-	x = seq(0.1, 40,by=0.1)
-	if (distribution == "lnorm"){
-		plot( x =  x, y = dlnorm( x, meanlog = pars$c1, sdlog =pars$c2), cex=cex.p, ylab=xl, xlab = "b", col = "darkgreen", type="l")
-	}
-	title(xl, cex.main=1.1)
-	mtext("A", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA)
-
-
-
-#### E[# mets]
-
-	# xl ="E[# mets]"
-	# x = seq(0.1, 10,by=0.1)
-	# yc = ENMets(x, pars, nocuring=F)
-	# y=ENMets(x, pars, nocuring=T)
-
-	# if (distribution == "lnorm"){
-			# plot( x =  x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "forestgreen",  type="l")
-			# lines(x = x, y = yc, col ="magenta")
-	# }
-	# title(xl)
-	# legend("topright",c("at diagnosis","after curing"),fill=c("darkgreen","magenta"))
-
-
-	# mtext("B", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-
-#### Med[# mets]
-
-	xl ="Median[# mets]"
-	x = seq(0.1, 10,by=0.1)
-	yc = MedNMets(x, pars, nocuring=F)
-	y=MedNMets(x, pars, nocuring=T)
-
-	if (distribution == "lnorm"){
-			plot( x =  x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "forestgreen",  type="l")
-			lines(x = x, y = yc, col ="magenta")
-	}
-	title(xl)
-	legend("topright",c("at diagnosis","after curing"),fill=c("darkgreen","magenta"))
-
-
-	mtext("B", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-
-
-# #### DISTRIBUTIONOF THE NUMBER OF METS
-	# xl ="P(# mets <= k) after chemo"	
-	# tit = "CDF"
-	# maxk = 1000
-	# ds = c(0.5, 1 , 2, 4, 8)
-	# cols = c("orange","red","firebrick","violet","darkblue")
-	
-	# mtpl = NULL
-		
-	# for (d in ds){
-			# #distnm = DistrNMets( d, maxk, pars, nocuring = F, delay = 0 )
-			# distnm = d
-			# mtpl = cbind(mtpl, distnm)
-	# }
-	# colnames(mtpl)=ds
-	# max.mtpl.1 = max(mtpl)
-	# matplot(x = seq(0, maxk), y = mtpl, lty = 1, col = cols, 
-        # xlab = "k", ylab = xl, xlim = c(0, maxk), type = "l", pch = 20)
-        # legend("topright", legend=ds, fill=cols, title = "d")
-	# title(tit, cex.main=1.1)
-	
-	# mtext("C", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-	
-	# xl ="P(# mets <= k) at diagnosis"	
-	# tit = "CDF"
-	# maxk = 1000
-	# ds = c(0.5, 1 , 2, 4, 8)
-	# cols = c("orange","red","firebrick","violet","darkblue")
-	
-	# mtpl = NULL
-		
-	# for (d in ds){
-			# distnm = DistrNMets( d, maxk, pars, nocuring = T, delay = 0 )
-			# mtpl = cbind(mtpl, distnm)
-	# }
-	# colnames(mtpl)=ds
-	# max.mtpl.1 = max(mtpl)
-	# matplot(x = seq(0, maxk), y = mtpl, lty = 1, col = cols, 
-        # xlab = "k", ylab = xl, xlim = c(0, maxk), type = "l", pch = 20)
-        # legend("topright", legend=ds, fill=cols, title = "d")
-	# title(tit, cex.main=1.1)
-
-	# mtext("C.b", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-
-
-#### P CURE FRACTION OF METS REMOVED	
-	
-	xl ="Fraction mets removed"
-	x = seq(0.1, 10,by=0.1)
-	plot( x =  x, y = EPcure( x, pars), cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "darkgreen", ylim = c(0,1), type="l")
-
-	title(xl, cex.main=1.1)
-	mtext("D", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-	
-#### P REM PROBABILITY TO REMOVE METASTASES	
-
-	xl =tit="Probability to remove mets"
-	x = seq(0.1, 10,by=0.1)
-	plot( x =  x, y = Prem( x, pars), cex=cex.p, ylab=xl, xlab = "Met age (years)", col = "darkgreen", ylim = c(0,1), type="l")
-	title(tit, cex.main=1.1)
-	mtext("E", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-
-#### IMPACT OF TREATMENT DELAY
-	delays = rev( c(4, 8, 16) )
-	cols= rev( c("chartreuse4","chocolate4","blue") )
-	names(cols) = delays
-	for (delay in delays){
-			DrawCancerDelay("PmetExpVCond",surv.data, data.gen, res.exp, delay, col = cols[names(cols)==delay], add = (delay != delays[1]))		
-	}
-	title("Increase of met probability \n due to surgery delay", cex.main=1.1)
-	legend("topright",legend = paste("delay",delays, "weeks"), fill=cols)
-	mtext("F", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-	
-#### IMPACT OF IMMUNOTHERAPY - INCREASE OF MEDIAN BOTTLENECK	
-	times.inc = rev( c(1.1, 1.25,  1.5, 2) )
-	cols= rev( c("azure4","aquamarine3","cornflowerblue","blue4") )#"cadetblue"
-	names(cols) = times.inc
-	for (timesBot in times.inc){
-			DrawCancerImmunoth("PmetExpVCond",surv.data, data.gen, res.exp, timesBot, col = cols[names(cols)== timesBot], add = (timesBot != times.inc[1]))		
-	}
-	title("Decrease of met probability \n due to immunotherapy", cex.main=1.1)
-	legend("topleft",legend = paste( times.inc, "times"), fill=cols, title = "med bottleneck inc.")
-	mtext("G", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-	
-#### IMPACT OF CHEMOTHERAPY - INCREASE OF AVG TREATABLE MET AGE		DrawCancerChemoth
-	times.inc = rev( c(1.1, 2,  5, 10) )
-	cols= rev( c("chartreuse","cyan2","brown1","darkorchid4") )#"cadetblue"
-	names(cols) = times.inc
-	for (timesBot in times.inc){
-			DrawCancerChemoth("PmetExpVCond",surv.data, data.gen, res.exp, timesBot, col = cols[names(cols)== timesBot], add = (timesBot != times.inc[1]))		
-	}
-	title("Decrease of met probability \n due to chemotherapy", cex.main=1.1)
-	legend("topright",legend = paste( times.inc, "times"), fill=cols, title = "avg removable met age inc.")
-	mtext("H", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-
-	dev.off()
-}
-
 
