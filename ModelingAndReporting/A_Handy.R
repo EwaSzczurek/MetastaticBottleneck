@@ -2,8 +2,18 @@ load("Cancers.RData")
 source("A_HandyDraw.R")
 source("A_HandyFit.R")
 source("A_HandySummarize.R")
+source("BCD_Models.R")
 
-#### Data access functions
+##############################
+### Constants
+##############################
+
+fitFolder = "Fit_BCDf_largeInit/"
+dir.create(fitFolder,showWarnings = FALSE) 
+
+core.number = 61 #IMPORTANT! Here you fix the number of cores you wish to use for model fitting on your server! The larger no of cores you can use, the faster this computation will finish. Note that with this no of cores the fitting to 14 cancers took several days. So be patient.
+paralelPars = TRUE
+
 cancers = c("Breast Ca (NST)", "Breast Ca lobular" ,"Ovarial Ca","Endometrial Ca",
   "Esophageal Ca", "Gastric AdenoCa", "Colon AdenoCa" , "Colon AdenoCa muc",  "Rectum AdenoCa",
   "Pancreas AdenoCa",
@@ -32,7 +42,66 @@ X.0 = 10^{-4} #initial condition for the tumor growth
 const = (4*pi)^{1/3}*3^{2/3}*10^6*(X.0)^{2/3}
 
 toinclude=c("medSurvExpV","obsMetProbExpV") ### these are the functions (model equations), which will be used for model fitting to data: quantile survival and metastasis detection rate
+upper_l_normal = 600
 
+## Decide on the distribution of the bottleneck severity b
+#distribution = "uniform"
+#distribution = "gamma"
+distribution = "lnorm"
+
+actual.names = switch(distribution,
+	lnorm= c("T0","h","T1","mu","sigma","f", "rmse","r2"),
+	gamma = c("T0","h","T1","shape","scale","f", "rmse","r2"),
+	uniform = c("T0","h","T1", "c1","c2","f","rmse","r2")
+	)
+
+### Set names for initial and final fitted parameters
+names.run = c("T0.init",  "h.init", "T1.init", "c1.init", "c2.init","f.init", 
+"T0", "h", "T1", "c1", "c2","f", "rmse", "r2")
+names.out = names.run[(length(names.run)/2):length(names.run)]
+
+
+##############################
+## Technical functions
+##############################
+
+## Casting parameter values
+getPars<-function(res.exp,pars){
+	pars$T0 = as.numeric( res.exp["T0"] )
+	pars$h=as.numeric( res.exp["h"] )
+	pars$T1=as.numeric( res.exp["T1"] )
+	pars$c1=as.numeric( res.exp["c1"] )
+	pars$c2=as.numeric( res.exp["c2"] )
+	pars$f=as.numeric( res.exp["f"] )
+	if (pars$distr == "uniform"){
+		pars$down  = pars$c1
+		pars$up = pars$c2
+	}else{
+		pars$up = upper_l_normal 
+		pars$down=0
+		}
+	pars
+}
+
+### Evluating the fit/prediction
+calculateRMSE<- function(r.valfits){
+	rmses = NULL
+	for( cancer in cancers){
+		y1 = r.valfits[r.valfits$cancer==cancer,"pred"]
+		y = r.valfits[r.valfits$cancer==cancer,"y"]
+
+		is.na.y1=is.na(y1)
+		is.na.y = is.na(y)
+		is.nas = is.na.y1 | is.na.y
+		y1 = y1[!is.nas]
+		y = y[!is.nas]
+		
+		n = length(y)
+		rmse = sqrt( sum( (y1 - y )^2 )/n )
+		rmses = c(rmses, rmse)
+	}
+	rmses
+}
 
 
 # Multiple plot function
@@ -80,6 +149,14 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
     }
   }
 }
+
+## color scale
+gg_color_hue <- function(n) {
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+
 
 #################################	
 #### Fit cancers functions
@@ -287,4 +364,19 @@ s1SS<-function(b){
 
 tdExp <- function( D, r ){
 	1/r *( log(pi/6) + 3*log(D) - log(X.0) )
+}
+
+jumppi <- function(i, b){
+	lambdai = 1/b*i
+	mui = 1
+	lambdai/(lambdai+mui)
+}
+
+si <- function(i, b, s1){
+	
+	ks = 1:(i-1)
+	prodals= b^ks/(gamma(ks+1))
+
+	sum(prodals)*(s1) + s1
+	
 }
