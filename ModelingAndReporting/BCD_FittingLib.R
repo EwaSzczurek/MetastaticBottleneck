@@ -1,9 +1,3 @@
-### Set names for iniital and final fitted parameters
-names.run = c("T0.init",  "h.init", "T1.init", "c1.init", "c2.init","f.init", 
-"T0", "h", "T1", "c1", "c2","f", "rmse", "r2")
-names.out = names.run[(length(names.run)/2):length(names.run)]
-
-
 ### Perform the model fit to fata for given set of initial parameters 
 runSurvPMetCondObsV <- function( param.init, data.gen, dat ){
 	T0.init = param.init[1]
