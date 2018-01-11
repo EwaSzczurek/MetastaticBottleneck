@@ -1,7 +1,6 @@
 ##############################
-### Constants
+### Code implementing the model. Some very basic model functions are in A_Handy.R
 ##############################
-upper_l_normal = 600
 
 ##############################
 ### Utility functions
@@ -123,16 +122,10 @@ medSurvExpV<- function( D, pars, delay = 0 ){
         		suppressWarnings(	uniroot(medxm, lower=(pars$Td0), upper=pars$Tdd) )   
         },
         	error=function(cond) {
-            #message("Uniroot. Here's the original error message:")
-            # message(cond)
-            # Choose a return value in case of error
             return(NULL)
         	},
         	warning=function(cond) {       
-        		#  message("\nUniroot Here's the original warning message:")
-          	#  message(cond)
-          	# Choose a return value in case of warning
-            return(NULL)
+             return(NULL)
         	},
        		 finally={}
         	)
@@ -170,7 +163,7 @@ medSurvExpVObsMet<- function( D, pars ){
 				dens <- GetDens(b, pars$c1, pars$c2, pars$distr)
 				res=as.numeric(  dens* FT1T2ExpC(pars$Td0, pars$x, pars$Td, pars$f, pars$r, s1)/FT1T2ExpC(pars$Td0, pars$Td1, pars$Td, pars$f, pars$r, s1)   )
 				res
-			} ### self stimulation with parameter b
+			} 
 			
 			val = doIntegration( integrando, pars)
 			
@@ -182,15 +175,9 @@ medSurvExpVObsMet<- function( D, pars ){
         	 suppressWarnings(	uniroot(medxm, lower=pars$Td0, upper=pars$Td1) )   
         },
         	error=function(cond) {
-           	# message("Uniroot. Here's the original error message:")
-            # message(cond)   
-            # Choose a return value in case of error
             return(NULL)
         	},
         	warning=function(cond) { 
-          	#  message("\nUniroot Here's the original warning message:")
-          	#  message(cond)
-            # Choose a return value in case of warning
             return(NULL)
         	},
        		 finally={}
@@ -234,7 +221,7 @@ obsMetProbExpV<- function(D, pars){
 
 
 ############################
-#### Curing prob
+#### Metastasis removal probability (due to treatment)
 
 EPcured <- function( d, pars){ 
 
@@ -256,7 +243,6 @@ EPcure<- function(D, pars){
 }
 
 Prem<- function(x, pars){
-	
 	exp( - pars$f * x )
 }
 
@@ -306,6 +292,9 @@ MedNMets<- function( D, pars, nocuring = F, delay = 0, maxk = 1000){
 	kms
 }
 
+######
+# This is the function fitted to data
+#####
 # data.gen - list of lists
 # each element: D, function, basic params (list with names a, r, q, quant)
 medSurvPmetCondObsV<- function(D,  data.gen,  T0, h, T1, c1, c2, f){
