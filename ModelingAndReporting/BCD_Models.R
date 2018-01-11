@@ -19,15 +19,9 @@ doIntegration<-function(integrando, pars){
 	    suppressWarnings(integrate( integrando, pars, lower = pars$down, upper  =pars$up) )
     },
     error=function(cond) {             
-     	#message("Integration. Here's the original error message:")
-        #message(cond)             
-        # Choose a return value in case of error
         return(NULL)
     },
 	warning=function(cond) {
-		#message("\n Integration. Here's the original warning message:")
-       	#message(cond)
-        # Choose a return value in case of warning
         return(NULL)
      },
      finally={}
@@ -288,7 +282,7 @@ MedNMets<- function( D, pars, nocuring = F, delay = 0, maxk = 1000){
 		med.k
 	}
 	kms=as.numeric( unlist( sapply(D, solve.d )) )
-	#browser()
+	
 	kms
 }
 
