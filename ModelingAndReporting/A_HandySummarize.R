@@ -1,25 +1,4 @@
-
-
-drawPars<-function(par, pars, tit ="",sor = FALSE, col="blue"){
-	pars = pars[,par]
-	if (sor)
-		pars = sort(pars)
-	titn = gsub(" ","",tit)
-	pdf(paste(fitFolder,"Par_",par,"_", titn, ".pdf",sep=""), height=3.3,width=4.2)
-	par(ps=9,mar=c(6.5, 3,0.8,0.1), mgp=c(1.7,0.4,0))
-	ylim <- c(0, 1.2*max(pars))
-	## Plot, and store x-coordinates of bars in xx
-	xx <- barplot(pars, xaxt = 'n', xlab = '', width = 0.4, ylim = ylim,
-              ylab = par, col=col)
-	## Add text at top of bars
-	text(x = xx, y = pars, label = round(pars,2), pos = 3, cex = 0.7, col = "black")
-	## Add x-axis labels 
-	axis(1, at=xx, labels=names(pars), tick=FALSE, las=2, line=-0.1, cex.axis=1)
-	title(tit)
-	dev.off()
-}
-
-
+## Collect estimated model parameters
 getSimRes <- function(){
 	SIM.RES = NULL
 	cancersn = NULL
@@ -37,33 +16,7 @@ getSimRes <- function(){
 	SIM.RES
 }
 
-DrawSummaries<- function(model = "BCD"){
-	for (rfile in res.files){
-		#rfile = res.files[1]
-		load(rfile)
-	
-		#surv.data, data.gen,nam, res.exp, fitFolder,cancer,
-		nam = cancer
-		nam = gsub(x=nam,replacement="", " ")
-		nam=gsub(x=nam,replacement="_", "/")
-		gd =getData(cancer, include= c("medSurvExpV","obsMetProbExpV"))
-		surv.data = gd$surv.data
-		data.gen=gd$data.gen	
-		DrawCancerFit(surv.data, data.gen, res.exp, paste("Summary_",nam,sep=""))
-		gd =getData(cancer, include= c("PmetExpVCond","PmetExpVConda","PmetExpVCondc","medSurvExpVObsMet"))
-		surv.data = gd$surv.data
-		data.gen=gd$data.gen	
-		DrawCancerVal(surv.data, data.gen, res.exp, paste("Summary_",nam,sep=""))
-		
-		if (model == "BCD"){
-		gd =getData(cancer, include=c("medSurvExpV","obsMetProbExpV","PmetExpVCond","PmetExpVConda","PmetExpVCondc","medSurvExpVObsMet"))
-		surv.data = gd$surv.data
-		data.gen=gd$data.gen
-		DrawCancerPred(surv.data, data.gen, res.exp, paste("Summary_",nam,sep=""))
-		}
-	}
-}
-
+### Organize model predictions for a given analyzed cancer
 GetCancerPred <- function(surv.data, data.gen, res.exp, cancer){
 	
 	preds = NULL
@@ -74,105 +27,12 @@ GetCancerPred <- function(surv.data, data.gen, res.exp, cancer){
 	pars = getPars(res.exp, pars)
 
 	x = seq(1/(2^3), 10,by=1/(2^3))
-	bs = c( 10, 15, 17.5, 20, 22.5, 25)
-	
-#### BOTTLENECK DISTRIBUTION
-	# xl ="Bottleneck density"
-	# x = seq(0.1, 40,by=0.1)
-	# if (distribution == "lnorm"){
-		# plot( x =  x, y = dlnorm( x, meanlog = pars$c1, sdlog =pars$c2), cex=cex.p, ylab=xl, xlab = "b", col = "darkgreen", type="l")
-	# }
-	# title(xl, cex.main=1.1)
-	# mtext("A", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA)
-
-#### E[# mets]
-	# xl ="E[# mets]"
-	# x = seq(0.1, 10,by=0.1)
-	# yc = ENMets(x, pars, nocuring=F)
-	# y=ENMets(x, pars, nocuring=T)
-
-	# if (distribution == "lnorm"){
-			# plot( x =  x, y = y, cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "forestgreen",  type="l")
-			# lines(x = x, y = yc, col ="magenta")
-	# }
-	# title(xl)
-	# legend("topright",c("at diagnosis","after curing"),fill=c("darkgreen","magenta"))
-	# mtext("B", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-
-
-#### DISTRIBUTIONOF THE NUMBER OF METS
-	# xl ="P(# mets <= k)"	
-	# #tit = "Distribution of the # mets"
-	# maxk = 1000
-	# ds = c(0.5, 1 , 2, 4, 8)
-	# mtpl = NULL
-	# for (d in ds){
-			# # This gives the distr over 0--maxk values. We need these values 1--maxk
-			# distnm = DistrNMets( d, maxk, pars, nocuring = F, delay = 0 )
-			# distnm = distnm[2:length(distnm)]
-			# mtpl = rbind(mtpl, data.frame( x = seq(1, maxk), y = distnm, pred = rep(xl, maxk), additional=rep(d, maxk)) )
-	# }
-
-	# preds = rbind(preds, mtpl)
-	
-	print("Calculating median preds")
-	maxk = 250
-	xl ="Median(# mets) at diagnosis"	
-	distnm = MedNMets( x,  pars, nocuring = T, delay = 0, maxk=maxk)
-	mtpl = data.frame( x = x, y = distnm, pred = rep(xl, length(x)), additional=rep(NA, length(x)), additional2=rep(NA, length(x)) ) 
-	preds = rbind(preds, mtpl)
-	
-	xl ="Median(# mets) after chemo"	
-	distnm = MedNMets( x,  pars, nocuring = F, delay = 0, maxk=maxk)
-	mtpl = data.frame( x = x, y = distnm, pred = rep(xl, length(x)), additional=rep(NA, length(x)), additional2=rep(NA, length(x))) 
-	preds = rbind(preds, mtpl)
-	
-	
-#### P CURE FRACTION OF METS REMOVED	
-	
-	# xl ="Fraction mets removed"
-	# x = seq(0.1, 10,by=0.1)
-	# plot( x =  x, y = EPcure( x, pars), cex=cex.p, ylab=xl, xlab = "Tumor diameter (cm)", col = "darkgreen", ylim = c(0,1), type="l")
-
-	# title(xl, cex.main=1.1)
-	# mtext("D", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 
-	
-#### P REM PROBABILITY TO REMOVE METASTASES	
-
-	# xl =tit="Probability to remove mets"
-	# x = seq(0.1, 10,by=0.1)
-	# plot( x =  x, y = Prem( x, pars), cex=cex.p, ylab=xl, xlab = "Met age (years)", col = "darkgreen", ylim = c(0,1), type="l")
-	# title(tit, cex.main=1.1)
-	# mtext("E", side = 3, line = 0.7, outer = F, at = -1.6, adj = 0, padj = NA, cex = 0.9, col = NA, font = NA) 	
-	
-
-#### IMPACT OF TREATMENT DELAY
-	# delays = rev( c(4, 8, 16) )
-	# delays = c(8)
-	# no = 500
-	# set.seed(100)
-	# bs.draw = c( 10, 15, 18, 20, 22, 25)
-	# bs = c( bs.draw, rlnorm(no, meanlog = pars$c1, sdlog = pars$c2) )
-	# xl ="% met prob increase due to surg delay"
-	# del = NULL
-	# for (delay in delays){
-		# for (b in bs){
-			# delayy = delay * 1/52.1786			
-			# y = PmetExpVCondDiffFixedB(x, pars, delayy, fixed.b = b)
-			# #y = y*100
-			# del = rbind(del, data.frame(x = x, y = y, pred =rep(xl, length(x)), additional = rep(b, length(x))) )
-		# }
-	# }
-	# preds = rbind(preds, del)
-	
-	#delays = rev( c(4, 8, 16) )
-	print("Calculating surg delay preds")
+	bs = c( 17, 19, 22)
+		
+	print(cancer)	
+	print("Calculating cancer death risk increase due to surgery delay")
 	delays = c(8,16)
-	
-	#no = 500
-	#set.seed(100)
-	#bs = c( bs.draw, rlnorm(no, meanlog = pars$c1, sdlog = pars$c2) )
-	
+		
 	xl ="% met prob increase due to surg delay"
 	del = NULL
 	for (delay in delays){
@@ -187,8 +47,8 @@ GetCancerPred <- function(surv.data, data.gen, res.exp, cancer){
 	}
 	preds = rbind(preds, del)
 
-	print("Calculating immunoth preds")
-#### IMPACT OF IMMUNOTHERAPY - INCREASE OF MEDIAN BOTTLENECK	
+	print("Calculating cancer death risk decrease due to vaccines")
+#### IMPACT OF IMMUNOTHERAPY - INCREASE OF MEDIAN BOTTLENECK	 SEVERITY
 	bot = NULL				
 	xl ="% met prob decrease due to immunotherapy"	
 	times.inc = rev( c(1.1, 1.2) )
@@ -198,7 +58,6 @@ GetCancerPred <- function(surv.data, data.gen, res.exp, cancer){
 		pars.tmp = pars
 		pars.tmp$c1 = c1.new
 		for (b in bs){
-			#y = PmetExpVCondDiffFixedB(x, pars, pars.tmp, delay=0, fixed.b = b)
 			y1 = PmetExpVCondND(x, pars, delay = 0, fixed.b = b)
 			y2 = PmetExpVCondND(x, pars.tmp, delay = 0, fixed.b = b*timesBot)
 			y = (y1-y2) 	
@@ -206,13 +65,13 @@ GetCancerPred <- function(surv.data, data.gen, res.exp, cancer){
 				data.frame( x = x, y = y, pred =rep(xl, length(x)), additional = rep(b, length(x)), additional2 = rep(percBot, length(x) ) ) ) 
 		}
 		y1 = PmetExpVCond(x, pars)
-		y2 = PmetExpVCond(x, pars.tmp) ### Here, the bottleneck is larger so we should have less mets
+		y2 = PmetExpVCond(x, pars.tmp) ### Here, the bottleneck is stronger so we should have less mets
 		y = (y1-y2) # we want a positive number,we compute the decrease				
 		bot = rbind(bot, data.frame( x = x, y = y, pred = rep(xl, length(x)), additional = rep("Marginal", length(x)), additional2 = rep(percBot, length(x))) )
 	}
 	preds = rbind(preds, bot)
 	
-	print("Calculating chemo preds")
+	print("Calculating cancer death risk decrease due to  chemotherapy efficacy increase")
 	
 #### IMPACT OF CHEMOTHERAPY - INCREASE OF AVG TREATABLE MET AGE		DrawCancerChemoth
 	chem = NULL
@@ -241,7 +100,7 @@ GetCancerPred <- function(surv.data, data.gen, res.exp, cancer){
 	preds
 }
 
-
+### Organize model predictions for epidemiological data (SEER) for analyzed cancers
 GetPreds<-function(){
 	preds = NULL
 	for (rfile in res.files){
@@ -255,6 +114,7 @@ GetPreds<-function(){
 	preds
 }
 
+### Return the theoretical curves from the model for given data and parameters
 GetFitFunc <- function(surv.data, data.gen, res.exp, funcnams, qs=c(0.5)){
 	
 	le= length(data.gen)
@@ -342,7 +202,7 @@ GetFitFunc <- function(surv.data, data.gen, res.exp, funcnams, qs=c(0.5)){
 	got
 }
 
-
+### Return the theoretical curves from the model for given cancers
 GetFits<- function(cancers, funcnams, quants){
 	gots = NULL
 	for (rfile in res.files){
@@ -362,30 +222,8 @@ GetFits<- function(cancers, funcnams, quants){
 	gots
 }
 
-MeasureFits<- function(funcnam){
-	rmses= c()
-	r2s = c()
-	cans = c()
-	for (rfile in res.files){
-		#rfile = res.files[1]
-		load(rfile)
-	
-		#surv.data, data.gen,nam, res.exp, fitFolder,cancer,
 
-		gd =getData(cancer, include= toinclude)
-		surv.data = gd$surv.data
-		data.gen=gd$data.gen	
-		res = MeasureCancerFit(surv.data, data.gen, res.exp, funcnam)
-		rmses = c(rmses, res$rmse)
-		r2s = c(r2s, res$r2)
-		cans = c(cans, cancer)
-	}
-	df = cbind(rmses, r2s)
-	rownames(df)=cans
-	colnames(df)=c("RMSE","R2")
-	df
-}
-
+### summarize how well theoretical predictions fit to data
 MeasureCancerFits <- function(surv.data, data.gen, res.exp, funcnam.cancer, measure = "NRMSE"){
 	
 	le= length(data.gen)
@@ -407,7 +245,6 @@ MeasureCancerFits <- function(surv.data, data.gen, res.exp, funcnam.cancer, meas
 				y1 = func( dg$D, pars)
 				
 			}
-			   #browser()
 			is.na.y1=is.na(y1)
 			is.na.y = is.na(y)
 			is.nas = is.na.y1 | is.na.y
@@ -419,11 +256,7 @@ MeasureCancerFits <- function(surv.data, data.gen, res.exp, funcnam.cancer, meas
 			}else{
 				n = length(y1) 
 				ra = range(y)
-				#le = ra[2]-ra[1]
-				#me = mean(y)
 				rmse = sqrt( sum( (y1 - y )^2 )/n )
-				#nrmse = rmse/me
-				#nrmse = rmse/le
 				r2 =( cor( y1, y ))^2
 
 			}
@@ -454,7 +287,7 @@ MeasureCancerFits <- function(surv.data, data.gen, res.exp, funcnam.cancer, meas
 	rmses
 }
 
-
+### Compute how well the model theoretical curves fit to data
 MeasureFitsTog<- function(funcnam, measure = "NRMSE"){
 	rmses= NULL
 	
