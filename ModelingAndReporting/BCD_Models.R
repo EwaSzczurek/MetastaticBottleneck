@@ -215,8 +215,8 @@ obsMetProbExpV<- function(D, pars){
 
 
 ############################
-#### Metastasis removal probability (due to treatment)
-
+## Metastasis removal probability (due to treatment)
+############################
 EPcured <- function( d, pars){ 
 
 	pars$Td = tdExp( d, pars$r )
@@ -241,7 +241,8 @@ Prem<- function(x, pars){
 }
 
 ############################
-#### Median no of mets
+## Median no of mets
+############################
 MedNMets<- function( D, pars, nocuring = F, delay = 0, maxk = 1000){
 	pars$up = 700
 	
