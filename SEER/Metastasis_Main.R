@@ -38,7 +38,10 @@ inc = inc[inc[,gr] %in%names(counts), ]
 inc$cancertype = inc$Site
 inc$Site = inc[,gr]
 
-inc <- inc[!inc$Site%in% c("thyroid Ca","cervix SCC","HCC", "SCLC"),] #have less thn 500 patients in the end.-too few datapoints to fit tumor dimeter dependence.
+#Remove 4 cancer types that have less than 500 patients with survival time recorded in the end
+# -too few datapoints to fit tumor dimeter dependence.
+inc <- inc[!inc$Site%in% c("thyroid Ca","cervix SCC","HCC", "SCLC"),] 
+# Merge two subtypes of esophageal cancer, to get a larger patient group
 inc$Site[ inc$Site == "esophageal AdenoCa"] <-"Esophageal Ca"
 inc$Site[ inc$Site ==  "esophageal SSC"] <-"Esophageal Ca"
 
