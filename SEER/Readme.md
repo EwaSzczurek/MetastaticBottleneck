@@ -5,6 +5,7 @@ Our Data-Use Agreement for the SEER 1973-2013 Research Data Files
 constrains that we can only release this data to a person with the written approval of the SEER Program. 
 In particular, all members of a research team who will have access to the data must sign this data-use
 agreement.
+To see exactly which SEER records were preselected for our analysis, please refer to file STable_1.xls, which contains Histology, Histology Description, Histology/Behavior, Histology/Behavior Description from the SEER database (first four columns), for the cancer types we chose to analyze (last column).
 
 The code generates a subfolder Cancers with several summary plots, which are not directly relevant to the project.
 
