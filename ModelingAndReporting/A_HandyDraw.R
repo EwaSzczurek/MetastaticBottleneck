@@ -430,6 +430,8 @@ if (ver=="supp"){
 	selcanc = c( "Head & neck" ,"Pancreatic","Endometrial","Bladder", "Rectal",'Lung',"Breast","Colon muc","Esophageal","Breast lob")
 	tit="ExtendedData_Figure3.pdf"
 }
+	
+selcanc=sort(selcanc)
 preds1 = data.frame(preds)
 preds1$Cancer = factor(preds1$Cancer)
 preds1$Cancer = factor( replaceCancers(( preds1$Cancer)),levels=replaceCancers(levels(  preds1$Cancer)))
