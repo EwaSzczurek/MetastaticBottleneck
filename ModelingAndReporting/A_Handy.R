@@ -34,7 +34,8 @@ rep(255,5), #GI tumors
 603, #Renal cell ca
 255 #Urothelial
 )
-rs = rs.days*log(2)/365.24
+#rs = rs.days*log(2)/365.24 - that was a very bad mistake!!!
+rs = log(2)*365.24/rs.days
 names(rs)=cancers
 q = 11 # per cell per year release rate (for cells on tumor surface)
 e = 0.8 #per cell extravasation rate
